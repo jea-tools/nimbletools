@@ -1,0 +1,286 @@
+{
+  "app": {
+    "name": "NimbleTools",
+    "description": "Privacy-first, offline utility toolbox"
+  },
+  "nav": {
+    "imageTools": "Image Tools",
+    "formatConvert": "Format Convert",
+    "resize": "Resize",
+    "compress": "Compress",
+    "merge": "Image Merge",
+    "watermark": "Watermark",
+    "fileTools": "File Tools",
+    "fileSplit": "File Split",
+    "fileMerge": "File Merge",
+    "batchRename": "Batch Rename",
+    "textTools": "Text & Encoding",
+    "ocr": "OCR Extract",
+    "base64": "Base64",
+    "jsonXml": "JSON / XML",
+    "urlEncode": "URL Encode",
+    "regex": "Regex Tester",
+    "textStats": "Text Stats",
+    "utilityTools": "Utilities",
+    "qrcode": "QR Code",
+    "unitConverter": "Unit Converter",
+    "colorPicker": "Color Picker",
+    "timestamp": "Timestamp",
+    "hash": "Hash Calculator",
+    "uuid": "UUID Generator",
+    "password": "Password Gen",
+    "numberBase": "Number Base",
+    "curl": "Curl",
+    "clipboard": "Clipboard",
+    "screenshot": "Screenshot",
+    "capture": "Screen Capture",
+    "settings": "Settings"
+  },
+  "common": {
+    "selectFiles": "Select Files",
+    "selectFolder": "Select Folder",
+    "dropFiles": "Drop files here or click to browse",
+    "dropHint": "Supports drag & drop",
+    "process": "Process",
+    "save": "Save",
+    "copy": "Copy",
+    "clear": "Clear",
+    "reset": "Reset",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "undo": "Undo",
+    "success": "Success",
+    "error": "Error",
+    "processing": "Processing...",
+    "completed": "Completed",
+    "outputFolder": "Output Folder",
+    "preview": "Preview",
+    "download": "Download",
+    "copied": "Copied to clipboard",
+    "noFiles": "No files selected"
+  },
+  "imageTools": {
+    "formatConvert": {
+      "title": "Image Format Conversion",
+      "desc": "Convert images between JPG, PNG, WebP, and BMP formats",
+      "targetFormat": "Target Format",
+      "quality": "Quality"
+    },
+    "resize": {
+      "title": "Image Resize",
+      "desc": "Resize images by pixel dimensions or percentage",
+      "width": "Width",
+      "height": "Height",
+      "percentage": "Percentage",
+      "keepAspectRatio": "Keep Aspect Ratio",
+      "byPixels": "By Pixels",
+      "byPercentage": "By Percentage"
+    },
+    "compress": {
+      "title": "Image Compression",
+      "desc": "Compress images with adjustable quality",
+      "quality": "Quality",
+      "originalSize": "Original",
+      "compressedSize": "Compressed",
+      "savings": "Savings"
+    },
+    "merge": {
+      "title": "Image Merge",
+      "desc": "Merge multiple images horizontally or vertically",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical",
+      "direction": "Direction",
+      "addImages": "Add images (2 or more)"
+    }
+  },
+  "fileTools": {
+    "split": {
+      "title": "File Split",
+      "desc": "Split large files by size or count",
+      "bySize": "By Size",
+      "byCount": "By Count",
+      "chunkSize": "Chunk Size",
+      "chunkCount": "Number of Parts",
+      "unit": "Unit"
+    },
+    "merge": {
+      "title": "File Merge",
+      "desc": "Merge split file parts back together",
+      "verifyCrc": "Verify CRC32",
+      "merging": "Merging files..."
+    },
+    "rename": {
+      "title": "Batch Rename",
+      "desc": "Rename multiple files with patterns",
+      "prefix": "Prefix",
+      "suffix": "Suffix",
+      "findReplace": "Find & Replace",
+      "find": "Find",
+      "replace": "Replace With",
+      "useRegex": "Use Regex",
+      "sequential": "Sequential Numbering",
+      "startNumber": "Start Number",
+      "digits": "Digits",
+      "original": "Original",
+      "renamed": "Renamed",
+      "apply": "Apply Rename"
+    }
+  },
+  "textTools": {
+    "ocr": {
+      "title": "OCR Text Extraction",
+      "desc": "Extract text from images using local OCR engine",
+      "paste": "Paste or drop an image",
+      "extracting": "Extracting text...",
+      "copyAll": "Copy All",
+      "result": "Extracted Text"
+    },
+    "base64": {
+      "title": "Base64 Encode / Decode",
+      "desc": "Encode or decode text and files in Base64",
+      "encode": "Encode",
+      "decode": "Decode",
+      "input": "Input",
+      "output": "Output",
+      "textMode": "Text",
+      "fileMode": "File"
+    },
+    "formatter": {
+      "title": "JSON / XML Formatter",
+      "desc": "Format, validate and beautify JSON or XML data",
+      "format": "Format",
+      "minify": "Minify",
+      "validate": "Validate",
+      "valid": "Valid syntax",
+      "invalid": "Invalid syntax"
+    }
+  },
+  "utilityTools": {
+    "qrcode": {
+      "title": "QR Code Generator",
+      "desc": "Generate QR codes from text, URLs, or WiFi config",
+      "text": "Text / URL",
+      "wifi": "WiFi",
+      "ssid": "Network Name (SSID)",
+      "password": "Password",
+      "encryption": "Encryption",
+      "savePng": "Save as PNG",
+      "copyToClipboard": "Copy to Clipboard"
+    },
+    "unitConverter": {
+      "title": "Unit Converter",
+      "desc": "Convert between common measurement units",
+      "length": "Length",
+      "weight": "Weight",
+      "temperature": "Temperature",
+      "volume": "Volume",
+      "area": "Area",
+      "speed": "Speed",
+      "data": "Data Storage",
+      "from": "From",
+      "to": "To",
+      "value": "Value",
+      "result": "Result"
+    },
+    "colorPicker": {
+      "title": "Color Picker",
+      "desc": "Pick colors from screen and view HEX, RGB, HSL values",
+      "pick": "Pick Color from Screen",
+      "hex": "HEX",
+      "rgb": "RGB",
+      "hsl": "HSL",
+      "history": "Color History"
+    },
+    "timestamp": {
+      "title": "Timestamp Converter",
+      "desc": "Convert between timestamps and readable dates",
+      "currentTime": "Current Timestamp",
+      "toDate": "Timestamp → Date",
+      "toTimestamp": "Date → Timestamp",
+      "seconds": "Seconds",
+      "milliseconds": "Milliseconds"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language",
+    "outputDir": "Default Output Directory",
+    "screenshotMode": "Screenshot Confirm",
+    "screenshotAuto": "Capture on selection",
+    "screenshotDblclick": "Double-click to confirm",
+    "about": "About",
+    "version": "Version"
+  },
+  "extraTools": {
+    "hash": {
+      "title": "Hash Calculator",
+      "desc": "Calculate MD5, SHA-1, SHA-256, SHA-512 hash for text or files"
+    },
+    "uuid": {
+      "title": "UUID Generator",
+      "desc": "Generate random UUID v4 identifiers",
+      "count": "Count",
+      "noDashes": "No dashes",
+      "generate": "Generate"
+    },
+    "password": {
+      "title": "Password Generator",
+      "desc": "Generate secure random passwords with customizable options",
+      "length": "Length",
+      "generate": "Generate Password"
+    },
+    "urlEncode": {
+      "title": "URL Encode / Decode",
+      "desc": "Encode or decode URL components"
+    },
+    "regex": {
+      "title": "Regex Tester",
+      "desc": "Test regular expressions with real-time match highlighting",
+      "matches": "Matches"
+    },
+    "numberBase": {
+      "title": "Number Base Converter",
+      "desc": "Convert numbers between binary, octal, decimal, and hexadecimal"
+    },
+    "textStats": {
+      "title": "Text Statistics",
+      "desc": "Count characters, words, lines, paragraphs and estimate reading time",
+      "characters": "Characters",
+      "charsNoSpace": "Chars (no space)",
+      "words": "Words",
+      "lines": "Lines",
+      "paragraphs": "Paragraphs",
+      "sentences": "Sentences",
+      "readTime": "Read Time"
+    },
+    "watermark": {
+      "title": "Image Watermark",
+      "desc": "Add text watermark to images in batch",
+      "text": "Watermark Text",
+      "position": "Position",
+      "opacity": "Opacity",
+      "size": "Size"
+    },
+    "clipboard": {
+      "title": "Clipboard History",
+      "desc": "Record clipboard history. Use a global hotkey to open a quick popup.",
+      "items": "items",
+      "empty": "No clipboard history yet",
+      "hotkeyLabel": "Global Hotkey",
+      "hotkeyDesc": "Click to record a new shortcut",
+      "pressKey": "Press keys…",
+      "notSet": "Not set"
+    }
+  },
+  "screenshot": {
+    "hotkeyLabel": "Screenshot Hotkey",
+    "hotkeyDesc": "Trigger screenshot from anywhere",
+    "flashHint": "When using the hotkey to capture, the main window stays visible and the selection overlay opens on the current screen."
+  }
+}

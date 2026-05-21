@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main", "clipboard-popup", "screenshot-editor", "region-selector"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default",
+    "fs:default",
+    "fs:read-all",
+    "fs:write-all",
+    "fs:scope-temp",
+    "global-shortcut:default"
+  ]
+}

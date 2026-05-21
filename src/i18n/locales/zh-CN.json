@@ -1,0 +1,286 @@
+{
+  "app": {
+    "name": "NimbleTools",
+    "description": "隐私优先的离线实用工具箱"
+  },
+  "nav": {
+    "imageTools": "图片处理",
+    "formatConvert": "格式转换",
+    "resize": "尺寸调整",
+    "compress": "质量压缩",
+    "merge": "图片拼接",
+    "watermark": "图片水印",
+    "fileTools": "文件工具",
+    "fileSplit": "文件拆分",
+    "fileMerge": "文件合并",
+    "batchRename": "批量重命名",
+    "textTools": "文本与编码",
+    "ocr": "OCR 识别",
+    "base64": "Base64",
+    "jsonXml": "JSON / XML",
+    "urlEncode": "URL 编解码",
+    "regex": "正则测试",
+    "textStats": "文本统计",
+    "utilityTools": "实用工具",
+    "qrcode": "二维码",
+    "unitConverter": "单位转换",
+    "colorPicker": "颜色拾取",
+    "timestamp": "时间戳",
+    "hash": "Hash 校验",
+    "uuid": "UUID 生成",
+    "password": "密码生成",
+    "numberBase": "进制转换",
+    "curl": "Curl 请求",
+    "clipboard": "剪贴板",
+    "screenshot": "截图标注",
+    "capture": "屏幕截图",
+    "settings": "设置"
+  },
+  "common": {
+    "selectFiles": "选择文件",
+    "selectFolder": "选择文件夹",
+    "dropFiles": "拖放文件到此处，或点击浏览",
+    "dropHint": "支持拖放操作",
+    "process": "处理",
+    "save": "保存",
+    "copy": "复制",
+    "clear": "清空",
+    "reset": "重置",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "undo": "撤销",
+    "success": "成功",
+    "error": "错误",
+    "processing": "处理中...",
+    "completed": "已完成",
+    "outputFolder": "输出目录",
+    "preview": "预览",
+    "download": "下载",
+    "copied": "已复制到剪贴板",
+    "noFiles": "未选择文件"
+  },
+  "imageTools": {
+    "formatConvert": {
+      "title": "图片格式转换",
+      "desc": "在 JPG、PNG、WebP、BMP 格式之间自由转换",
+      "targetFormat": "目标格式",
+      "quality": "质量"
+    },
+    "resize": {
+      "title": "图片尺寸调整",
+      "desc": "按像素尺寸或百分比缩放图片",
+      "width": "宽度",
+      "height": "高度",
+      "percentage": "百分比",
+      "keepAspectRatio": "保持宽高比",
+      "byPixels": "按像素",
+      "byPercentage": "按百分比"
+    },
+    "compress": {
+      "title": "图片质量压缩",
+      "desc": "通过调整质量参数压缩图片体积",
+      "quality": "质量",
+      "originalSize": "原始大小",
+      "compressedSize": "压缩后",
+      "savings": "节省"
+    },
+    "merge": {
+      "title": "图片拼接",
+      "desc": "将多张图片水平或垂直拼接为一张",
+      "horizontal": "水平",
+      "vertical": "垂直",
+      "direction": "方向",
+      "addImages": "添加图片（至少 2 张）"
+    }
+  },
+  "fileTools": {
+    "split": {
+      "title": "文件拆分",
+      "desc": "按大小或数量拆分大文件",
+      "bySize": "按大小",
+      "byCount": "按数量",
+      "chunkSize": "分块大小",
+      "chunkCount": "分块数量",
+      "unit": "单位"
+    },
+    "merge": {
+      "title": "文件合并",
+      "desc": "将拆分的文件分卷重新合并",
+      "verifyCrc": "CRC32 校验",
+      "merging": "合并中..."
+    },
+    "rename": {
+      "title": "批量重命名",
+      "desc": "使用规则模式批量重命名文件",
+      "prefix": "前缀",
+      "suffix": "后缀",
+      "findReplace": "查找替换",
+      "find": "查找",
+      "replace": "替换为",
+      "useRegex": "使用正则",
+      "sequential": "序号命名",
+      "startNumber": "起始数字",
+      "digits": "位数",
+      "original": "原文件名",
+      "renamed": "新文件名",
+      "apply": "执行重命名"
+    }
+  },
+  "textTools": {
+    "ocr": {
+      "title": "OCR 文字提取",
+      "desc": "使用本地 OCR 引擎从图片中提取文字",
+      "paste": "粘贴或拖放图片",
+      "extracting": "正在识别...",
+      "copyAll": "复制全部",
+      "result": "识别结果"
+    },
+    "base64": {
+      "title": "Base64 编解码",
+      "desc": "对文本或文件进行 Base64 编码或解码",
+      "encode": "编码",
+      "decode": "解码",
+      "input": "输入",
+      "output": "输出",
+      "textMode": "文本",
+      "fileMode": "文件"
+    },
+    "formatter": {
+      "title": "JSON / XML 格式化",
+      "desc": "格式化、校验和美化 JSON 或 XML 数据",
+      "format": "格式化",
+      "minify": "压缩",
+      "validate": "校验",
+      "valid": "语法正确",
+      "invalid": "语法错误"
+    }
+  },
+  "utilityTools": {
+    "qrcode": {
+      "title": "二维码生成器",
+      "desc": "从文本、网址或 WiFi 配置生成二维码",
+      "text": "文本 / 网址",
+      "wifi": "WiFi",
+      "ssid": "网络名称 (SSID)",
+      "password": "密码",
+      "encryption": "加密方式",
+      "savePng": "保存为 PNG",
+      "copyToClipboard": "复制到剪贴板"
+    },
+    "unitConverter": {
+      "title": "单位转换器",
+      "desc": "常用度量衡单位双向转换",
+      "length": "长度",
+      "weight": "重量",
+      "temperature": "温度",
+      "volume": "体积",
+      "area": "面积",
+      "speed": "速度",
+      "data": "数据存储",
+      "from": "从",
+      "to": "到",
+      "value": "数值",
+      "result": "结果"
+    },
+    "colorPicker": {
+      "title": "颜色拾取器",
+      "desc": "从屏幕取色并查看 HEX、RGB、HSL 值",
+      "pick": "从屏幕取色",
+      "hex": "HEX",
+      "rgb": "RGB",
+      "hsl": "HSL",
+      "history": "取色历史"
+    },
+    "timestamp": {
+      "title": "时间戳转换",
+      "desc": "在时间戳和可读日期之间转换",
+      "currentTime": "当前时间戳",
+      "toDate": "时间戳 → 日期",
+      "toTimestamp": "日期 → 时间戳",
+      "seconds": "秒",
+      "milliseconds": "毫秒"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "general": "通用",
+    "theme": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统",
+    "language": "语言",
+    "outputDir": "默认输出目录",
+    "screenshotMode": "截图确认方式",
+    "screenshotAuto": "框选后直接截图",
+    "screenshotDblclick": "框选后双击确认截图",
+    "about": "关于",
+    "version": "版本"
+  },
+  "extraTools": {
+    "hash": {
+      "title": "Hash 校验",
+      "desc": "计算文本或文件的 MD5、SHA-1、SHA-256、SHA-512 哈希值"
+    },
+    "uuid": {
+      "title": "UUID 生成器",
+      "desc": "批量生成随机 UUID v4 标识符",
+      "count": "数量",
+      "noDashes": "无连字符",
+      "generate": "生成"
+    },
+    "password": {
+      "title": "密码生成器",
+      "desc": "生成可自定义选项的安全随机密码",
+      "length": "长度",
+      "generate": "生成密码"
+    },
+    "urlEncode": {
+      "title": "URL 编解码",
+      "desc": "对 URL 组件进行编码或解码"
+    },
+    "regex": {
+      "title": "正则表达式测试",
+      "desc": "实时匹配高亮的正则表达式测试工具",
+      "matches": "匹配结果"
+    },
+    "numberBase": {
+      "title": "进制转换器",
+      "desc": "在二进制、八进制、十进制和十六进制之间转换"
+    },
+    "textStats": {
+      "title": "文本统计",
+      "desc": "统计字符、词数、行数、段落数及估算阅读时间",
+      "characters": "字符数",
+      "charsNoSpace": "字符(不含空格)",
+      "words": "词数",
+      "lines": "行数",
+      "paragraphs": "段落",
+      "sentences": "句子",
+      "readTime": "阅读时间"
+    },
+    "watermark": {
+      "title": "图片水印",
+      "desc": "批量为图片添加文字水印",
+      "text": "水印文字",
+      "position": "位置",
+      "opacity": "透明度",
+      "size": "大小"
+    },
+    "clipboard": {
+      "title": "剪贴板历史",
+      "desc": "记录剪贴板历史，使用全局快捷键打开快速弹窗。",
+      "items": "条",
+      "empty": "还没有剪贴板历史",
+      "hotkeyLabel": "全局快捷键",
+      "hotkeyDesc": "点击后按下新的快捷键组合",
+      "pressKey": "请按下快捷键…",
+      "notSet": "未设置"
+    }
+  },
+  "screenshot": {
+    "hotkeyLabel": "截图快捷键",
+    "hotkeyDesc": "在任何位置触发截图",
+    "flashHint": "使用快捷键截图时，主界面会保持可见，截图选择器会直接覆盖到当前屏幕。"
+  }
+}

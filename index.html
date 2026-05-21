@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="NimbleTools - Privacy-first, offline utility toolbox for image processing, file tools, text encoding, and more." />
+    <title>NimbleTools</title>
+  </head>
+  <body>
+    <script>
+      // 最早时机应用主题，消除白闪（所有窗口通用）
+      (function() {
+        var theme = localStorage.getItem('nimbletools-theme');
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        // 弹窗窗口背景跟随主题
+        var bg = theme === 'dark' ? '#1a1a1a' : '#fafafa';
+        document.documentElement.style.background = bg;
+        document.body.style.background = bg;
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Self-distributed build: App Sandbox is intentionally disabled for global hotkeys, Accessibility paste, and screen capture. -->
+
+    <!-- 用户选择的文件读写（保存截图、图片处理等） -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- 辅助功能（模拟粘贴 Cmd+V） -->
+    <key>com.apple.security.accessibility</key>
+    <true/>
+
+    <!-- 屏幕截图权限 -->
+    <key>com.apple.security.screen-capture</key>
+    <true/>
+</dict>
+</plist>

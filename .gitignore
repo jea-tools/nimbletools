@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+dist-ssr/
+
+# Tauri / Rust build output
+src-tauri/target/
+target/
+
+# Tauri generated schemas
+src-tauri/gen/schemas/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local app data, caches, and logs
+*.log
+*.pid
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Package manager caches
+.npm/
+.yarn/
+.pnpm-store/
+
+# Test and coverage output
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# Bundled release artifacts
+*.dmg
+*.app
+*.pkg
+*.AppImage
+*.deb
+*.rpm
+*.zip
+*.tar.gz
+
+# Signing, provisioning, and private release credentials
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+*.mobileprovision
+*.provisionprofile
+
+# Local planning notes that are not part of the public source release
+implementation_plan.md
+docs/superpowers/
+CLAUDE.md
+GEMINI.md
+AGENTS.md
