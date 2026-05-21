@@ -5,6 +5,10 @@
 
 [中文说明](./README.zh.md) | [Privacy Policy](./PRIVACY.en.md) | [隐私说明](./PRIVACY.md)
 
+## About
+
+NimbleTools is a small macOS utility toolbox for everyday desktop work. It focuses on local-first processing, fast startup, and simple tools that do not require an account or a cloud service.
+
 ## Current Status
 
 This repository currently targets **macOS** only. No ready-to-install package is provided here.

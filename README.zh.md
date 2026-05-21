@@ -5,6 +5,10 @@
 
 [English](./README.md) | [隐私说明](./PRIVACY.md) | [Privacy Policy](./PRIVACY.en.md)
 
+## 关于
+
+NimbleTools 是一个面向日常桌面工作的 macOS 小工具箱，重点是本地优先、启动轻快、使用简单，不需要账号，也不依赖云端服务。
+
 ## 当前状态
 
 这个仓库当前只面向 **macOS**，没有提供可直接下载的安装包。
