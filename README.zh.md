@@ -1,8 +1,9 @@
 # NimbleTools for macOS
 
 > NimbleTools 是一个隐私优先的 macOS 桌面工具箱。
+> Windows 版本请访问：[nimbletools.jea.ink](https://nimbletools.jea.ink/)
 
-[English](./README.en.md) | [隐私说明](./PRIVACY.md) | [Privacy Policy](./PRIVACY.en.md)
+[English](./README.md) | [隐私说明](./PRIVACY.md) | [Privacy Policy](./PRIVACY.en.md)
 
 ## 当前状态
 

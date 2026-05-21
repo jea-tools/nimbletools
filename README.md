@@ -1,8 +1,9 @@
 # NimbleTools for macOS
 
 > NimbleTools is a privacy-first desktop utility toolbox for macOS.
+> For the Windows version, visit: [nimbletools.jea.ink](https://nimbletools.jea.ink/)
 
-[中文说明](./README.md) | [Privacy Policy](./PRIVACY.en.md) | [隐私说明](./PRIVACY.md)
+[中文说明](./README.zh.md) | [Privacy Policy](./PRIVACY.en.md) | [隐私说明](./PRIVACY.md)
 
 ## Current Status
 
