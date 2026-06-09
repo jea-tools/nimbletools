@@ -20,6 +20,10 @@ interface ScreenshotResult { success: boolean; path: string; message: string; }
 
 type ToolType = 'pen' | 'rect' | 'circle' | 'arrow' | 'line' | 'text';
 
+interface ScreenCapturePageProps {
+  externalMessage?: string;
+}
+
 interface DrawAction {
   type: ToolType;
   color: string;
@@ -38,7 +42,7 @@ const canCopyViaNativeAnnotationRenderer = (
   currentAction: DrawAction | null,
 ) => Boolean(sourcePath) && !currentAction;
 
-export default function ScreenCapturePage() {
+export default function ScreenCapturePage({ externalMessage = '' }: ScreenCapturePageProps) {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [, setImageSrc] = useState<string | null>(null);
@@ -57,6 +61,12 @@ export default function ScreenCapturePage() {
   useEffect(() => {
     getHotkey('screenshot').then(setHotkeyState);
   }, []);
+
+  useEffect(() => {
+    if (externalMessage) {
+      setMessage(externalMessage);
+    }
+  }, [externalMessage]);
 
   // 录制截图快捷键
   useEffect(() => {

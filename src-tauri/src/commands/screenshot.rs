@@ -105,15 +105,19 @@ pub fn take_screenshot(output_path: String) -> ScreenshotResult {
     }
 }
 
-pub fn capture_preview_to_file(output_path: &str) -> bool {
+pub fn capture_preview(output_path: &str) -> ScreenshotResult {
     #[cfg(target_os = "macos")]
     {
-        macos_screenshot_preview(output_path).success
+        macos_screenshot_preview(output_path)
     }
     #[cfg(not(target_os = "macos"))]
     {
         let _ = output_path;
-        false
+        ScreenshotResult {
+            success: false,
+            path: String::new(),
+            message: "Screenshot is currently supported on macOS only".into(),
+        }
     }
 }
 
@@ -152,6 +156,41 @@ pub fn capture_region_to_file(
         );
         false
     }
+}
+
+fn screen_capture_permission_result(
+    has_access: bool,
+    request_access: impl FnOnce() -> bool,
+) -> Option<ScreenshotResult> {
+    if has_access || request_access() {
+        None
+    } else {
+        Some(ScreenshotResult {
+            success: false,
+            path: String::new(),
+            message: "需要屏幕录制权限。请在系统弹窗中允许 NimbleTools；如果没有弹窗，请到 System Settings > Privacy & Security > Screen Recording / Screen & System Audio Recording 中开启 NimbleTools，然后重启应用。".into(),
+        })
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn has_screen_capture_access() -> bool {
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        fn CGPreflightScreenCaptureAccess() -> bool;
+    }
+
+    unsafe { CGPreflightScreenCaptureAccess() }
+}
+
+#[cfg(target_os = "macos")]
+fn request_screen_capture_access() -> bool {
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        fn CGRequestScreenCaptureAccess() -> bool;
+    }
+
+    unsafe { CGRequestScreenCaptureAccess() }
 }
 
 #[cfg(target_os = "macos")]
@@ -229,6 +268,12 @@ fn save_cgimage_as_file(
 #[cfg(target_os = "macos")]
 fn macos_screenshot(output_path: &str) -> ScreenshotResult {
     use std::ffi::c_void;
+
+    if let Some(result) =
+        screen_capture_permission_result(has_screen_capture_access(), request_screen_capture_access)
+    {
+        return result;
+    }
 
     #[link(name = "CoreGraphics", kind = "framework")]
     extern "C" {
@@ -350,6 +395,12 @@ fn macos_screenshot(output_path: &str) -> ScreenshotResult {
 #[cfg(target_os = "macos")]
 fn macos_screenshot_preview(output_path: &str) -> ScreenshotResult {
     use std::ffi::c_void;
+
+    if let Some(result) =
+        screen_capture_permission_result(has_screen_capture_access(), request_screen_capture_access)
+    {
+        return result;
+    }
 
     #[link(name = "CoreGraphics", kind = "framework")]
     extern "C" {
@@ -473,6 +524,12 @@ fn macos_capture_region_to_file(
     height: u32,
 ) -> ScreenshotResult {
     use std::ffi::c_void;
+
+    if let Some(result) =
+        screen_capture_permission_result(has_screen_capture_access(), request_screen_capture_access)
+    {
+        return result;
+    }
 
     #[link(name = "CoreGraphics", kind = "framework")]
     extern "C" {
@@ -617,7 +674,9 @@ fn macos_capture_region_to_file(
 
 #[cfg(test)]
 mod tests {
-    use super::{map_pixel_selection_to_display_rect, save_rgba_png, RectF};
+    use super::{
+        map_pixel_selection_to_display_rect, save_rgba_png, screen_capture_permission_result, RectF,
+    };
     use image::GenericImageView;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -677,5 +736,32 @@ mod tests {
                 height: 300.0,
             }
         );
+    }
+
+    #[test]
+    fn requests_screen_recording_permission_before_reporting_missing_access() {
+        let mut requested = false;
+        let result = screen_capture_permission_result(false, || {
+            requested = true;
+            false
+        })
+        .unwrap();
+
+        assert!(requested);
+        assert!(!result.success);
+        assert_eq!(result.path, "");
+        assert!(result.message.contains("Screen Recording"));
+    }
+
+    #[test]
+    fn continues_capture_when_screen_recording_permission_exists() {
+        let mut requested = false;
+
+        assert!(screen_capture_permission_result(true, || {
+            requested = true;
+            false
+        })
+        .is_none());
+        assert!(!requested);
     }
 }

@@ -265,6 +265,10 @@ fn should_prepare_clipboard_popup_open(is_visible: bool) -> bool {
     !is_visible
 }
 
+fn should_notify_main_when_screenshot_capture_fails(success: bool) -> bool {
+    !success
+}
+
 pub(crate) fn should_hide_main_for_screenshot_hotkey() -> bool {
     false
 }
@@ -518,15 +522,27 @@ fn take_screenshot_from_hotkey(app: &AppHandle) {
             std::thread::sleep(std::time::Duration::from_millis(capture_delay_ms));
         }
 
-        let captured = super::screenshot::capture_preview_to_file(&output_str);
+        let capture = super::screenshot::capture_preview(&output_str);
 
-        if captured && std::path::Path::new(&output_str).exists() {
+        if capture.success && std::path::Path::new(&output_str).exists() {
             println!("[Screenshot] Preview captured: {}", output_str);
             open_region_selector(&app_clone, &output_str);
         } else {
-            println!("[Screenshot] Capture failed");
+            cleanup_screenshot_temp(&output_str);
+            eprintln!("[Screenshot] Capture failed: {}", capture.message);
+            if should_notify_main_when_screenshot_capture_fails(capture.success) {
+                notify_screenshot_capture_failed(&app_clone, &capture.message);
+            }
         }
     });
+}
+
+fn notify_screenshot_capture_failed(app: &AppHandle, message: &str) {
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.show();
+        let _ = main_win.set_focus();
+        let _ = main_win.emit("screenshot-capture-failed", message.to_string());
+    }
 }
 
 /// 打开区域选择器窗口（覆盖鼠标所在显示器，不使用系统全屏）
@@ -695,6 +711,16 @@ mod tests {
     fn screenshot_hotkey_has_no_capture_delay_when_main_stays_visible() {
         assert_eq!(screenshot_capture_delay_ms(), 0);
         assert_eq!(region_selector_elevate_delay_ms(), 30);
+    }
+
+    #[test]
+    fn screenshot_capture_failure_notifies_main_window() {
+        assert!(super::should_notify_main_when_screenshot_capture_fails(
+            false
+        ));
+        assert!(!super::should_notify_main_when_screenshot_capture_fails(
+            true
+        ));
     }
 
     #[test]

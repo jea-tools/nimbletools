@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { listen } from '@tauri-apps/api/event';
+import { message } from '@tauri-apps/plugin-dialog';
 import { ThemeProvider } from './components/ThemeProvider';
 import Layout from './components/Layout';
 
@@ -45,6 +47,20 @@ import SettingsPage from './pages/Settings/SettingsPage';
 import ClipboardPopup from './pages/ClipboardPopup';
 
 function MainApp() {
+  const [screenshotNotice, setScreenshotNotice] = useState('');
+
+  useEffect(() => {
+    const unlisten = listen<string>('screenshot-capture-failed', (event) => {
+      setScreenshotNotice(event.payload);
+      window.history.pushState(null, '', '/screenshot/capture');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      message(event.payload, {
+        title: 'NimbleTools',
+        kind: 'warning',
+      }).catch(console.warn);
+    });
+    return () => { unlisten.then((fn) => fn()).catch(console.warn); };
+  }, []);
 
   return (
     <ThemeProvider>
@@ -86,7 +102,10 @@ function MainApp() {
             <Route path="/utility/clipboard" element={<ClipboardPage />} />
 
             {/* 截图 */}
-            <Route path="/screenshot/capture" element={<ScreenCapturePage />} />
+            <Route
+              path="/screenshot/capture"
+              element={<ScreenCapturePage externalMessage={screenshotNotice} />}
+            />
 
             {/* 设置 */}
             <Route path="/settings" element={<SettingsPage />} />
