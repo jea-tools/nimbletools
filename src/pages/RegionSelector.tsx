@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getEscapeAction, type Phase } from './RegionSelector.logic';
+import { getEscapeAction, isPointInSelection, shouldStartNewSelectionOnMouseDown, type Phase } from './RegionSelector.logic';
 
 const MIN_SELECTION_PX = 10;
 const SETTINGS_KEY = 'nimble_screenshot_confirm_mode';
@@ -225,21 +225,15 @@ export default function RegionSelector() {
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
 
-      // 有已确认选区时，在选区外点击 → 清除重新选
-      if (phaseRef.current === 'selected') {
-        const sel = selectionRef.current;
-        if (sel) {
-          const inSel = e.clientX >= sel.x && e.clientX <= sel.x + sel.w
-                     && e.clientY >= sel.y && e.clientY <= sel.y + sel.h;
-          if (!inSel) {
-            selectionRef.current = null;
-          }
-        }
+      const point = { x: e.clientX, y: e.clientY };
+      if (!shouldStartNewSelectionOnMouseDown(phaseRef.current, selectionRef.current, point)) {
+        mouseRef.current = point;
+        return;
       }
 
       phaseRef.current = 'drawing';
-      startRef.current = { x: e.clientX, y: e.clientY };
-      mouseRef.current = { x: e.clientX, y: e.clientY };
+      startRef.current = point;
+      mouseRef.current = point;
       selectionRef.current = null;
     };
 
@@ -275,9 +269,7 @@ export default function RegionSelector() {
       if (confirmMode !== 'dblclick' || phaseRef.current !== 'selected' || !selectionRef.current) return;
 
       const sel = selectionRef.current;
-      const inSel = e.clientX >= sel.x && e.clientX <= sel.x + sel.w
-                 && e.clientY >= sel.y && e.clientY <= sel.y + sel.h;
-      if (inSel) {
+      if (isPointInSelection(sel, { x: e.clientX, y: e.clientY })) {
         await submitSelection(sel);
       }
     };
