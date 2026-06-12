@@ -1310,6 +1310,25 @@ textarea.form-input {
   border-radius: 3px;
 }
 
+.cpop-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 8px;
+  border: 1px solid rgba(209, 52, 56, 0.35);
+  border-radius: 7px;
+  background: rgba(209, 52, 56, 0.08);
+  color: var(--accent-error);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cpop-error span {
+  min-width: 0;
+}
+
 .cpop-item {
   min-height: 66px;
   display: grid;

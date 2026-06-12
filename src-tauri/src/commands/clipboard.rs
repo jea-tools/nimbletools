@@ -636,6 +636,11 @@ pub fn paste_clipboard_item(
     app: tauri::AppHandle,
     state: State<'_, ClipboardState>,
 ) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    if let Some(message) = paste_permission_error(platform::is_accessibility_granted()) {
+        return Err(message.into());
+    }
+
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
     write_clipboard_item(&mut clipboard, state.inner(), &content_type, &content)?;
 
@@ -679,7 +684,15 @@ fn paste_focus_action_before_simulated_paste(
 fn paste_delay_before_simulated_paste_ms(action: PasteFocusAction) -> u64 {
     match action {
         PasteFocusAction::FocusMain => 60,
-        PasteFocusAction::ReturnToPreviousApp { .. } => 120,
+        PasteFocusAction::ReturnToPreviousApp { .. } => 220,
+    }
+}
+
+fn paste_permission_error(has_accessibility_permission: bool) -> Option<&'static str> {
+    if has_accessibility_permission {
+        None
+    } else {
+        Some("需要辅助功能权限才能自动粘贴。请在 System Settings > Privacy & Security > Accessibility 中允许 NimbleTools。")
     }
 }
 
@@ -842,8 +855,8 @@ fn get_portable_image() -> Option<(Vec<u8>, usize, usize)> {
 mod tests {
     use super::{
         paste_delay_before_simulated_paste_ms, paste_focus_action_before_simulated_paste,
-        prepare_text_history_entry, render_screenshot_annotations, save_rgba_image,
-        PasteFocusAction, ScreenshotAnnotation, ScreenshotTextPatch,
+        paste_permission_error, prepare_text_history_entry, render_screenshot_annotations,
+        save_rgba_image, PasteFocusAction, ScreenshotAnnotation, ScreenshotTextPatch,
     };
     use crate::commands::clipboard_db::ClipboardDb;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1014,7 +1027,16 @@ mod tests {
             paste_delay_before_simulated_paste_ms(PasteFocusAction::ReturnToPreviousApp {
                 pid: Some(123),
             }),
-            120
+            220
+        );
+    }
+
+    #[test]
+    fn history_paste_reports_missing_accessibility_permission() {
+        assert!(paste_permission_error(true).is_none());
+        assert_eq!(
+            paste_permission_error(false),
+            Some("需要辅助功能权限才能自动粘贴。请在 System Settings > Privacy & Security > Accessibility 中允许 NimbleTools。")
         );
     }
 }

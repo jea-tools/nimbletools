@@ -203,8 +203,13 @@ export default function ClipboardPopup() {
       content: entry.content,
     }).catch((err) => {
       pastingRef.current = false;
+      setError(String(err));
       console.warn(err);
     });
+  }, []);
+
+  const handleOpenAccessibilitySettings = useCallback(() => {
+    invoke('open_accessibility_settings').catch(console.warn);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -318,6 +323,16 @@ export default function ClipboardPopup() {
 
       <div className="cpop-content">
         <div className="cpop-list" ref={listRef}>
+          {error && !loading && filtered.length > 0 && (
+            <div className="cpop-error">
+              <span>{error}</span>
+              {error.includes('Accessibility') || error.includes('辅助功能') ? (
+                <button className="btn btn-secondary btn-sm" onClick={handleOpenAccessibilitySettings}>
+                  打开设置
+                </button>
+              ) : null}
+            </div>
+          )}
           {loading ? (
             <div className="cpop-empty">
               <Clipboard size={32} strokeWidth={1.5} />
