@@ -912,6 +912,15 @@ pub fn crop_and_open_editor(
     Ok(())
 }
 
+/// 取消区域选择并清理本次冻结预览图
+#[tauri::command]
+pub fn cancel_region_selector(app: AppHandle, source_path: String) {
+    if let Some(selector) = app.get_webview_window("region-selector") {
+        let _ = selector.close();
+    }
+    cleanup_screenshot_temp(&source_path);
+}
+
 /// 打开截图标注编辑器窗口（定位到光标所在显示器）
 fn open_screenshot_editor(app: &AppHandle, image_path: &str) {
     let (win_w, win_h) = (900.0, 700.0);

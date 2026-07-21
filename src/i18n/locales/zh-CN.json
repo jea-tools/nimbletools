@@ -211,9 +211,8 @@
     "system": "跟随系统",
     "language": "语言",
     "outputDir": "默认输出目录",
-    "screenshotMode": "截图确认方式",
-    "screenshotAuto": "框选后直接截图",
-    "screenshotDblclick": "框选后双击确认截图",
+    "screenshotMode": "截图选区确认",
+    "screenshotAdjustable": "框选后可调整，点确定或双击确认",
     "about": "关于",
     "version": "版本"
   },

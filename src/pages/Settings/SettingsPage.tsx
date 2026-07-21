@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../components/ThemeProvider';
 import { Sun, Moon, Monitor, Globe, Camera } from 'lucide-react';
@@ -8,19 +7,9 @@ const LANGUAGES = [
   { code: 'zh-CN', label: '简体中文' },
 ];
 
-const SCREENSHOT_CONFIRM_KEY = 'nimble_screenshot_confirm_mode';
-
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
-
-  const [screenshotMode, setScreenshotMode] = useState(() => {
-    return localStorage.getItem(SCREENSHOT_CONFIRM_KEY) || 'auto';
-  });
-
-  useEffect(() => {
-    localStorage.setItem(SCREENSHOT_CONFIRM_KEY, screenshotMode);
-  }, [screenshotMode]);
 
   return (
     <div className="page-container">
@@ -73,15 +62,7 @@ export default function SettingsPage() {
             <Camera size={18} />
             <span>{t('settings.screenshotMode')}</span>
           </div>
-          <select
-            className="form-input form-select"
-            style={{ width: 'auto' }}
-            value={screenshotMode}
-            onChange={(e) => setScreenshotMode(e.target.value)}
-          >
-            <option value="auto">{t('settings.screenshotAuto')}</option>
-            <option value="dblclick">{t('settings.screenshotDblclick')}</option>
-          </select>
+          <span className="text-sm text-secondary">{t('settings.screenshotAdjustable')}</span>
         </div>
       </div>
 

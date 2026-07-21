@@ -108,7 +108,7 @@ pub fn take_screenshot(output_path: String) -> ScreenshotResult {
 pub fn capture_preview(output_path: &str) -> ScreenshotResult {
     #[cfg(target_os = "macos")]
     {
-        macos_screenshot_preview(output_path)
+        capture_display_preview(output_path)
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -132,7 +132,7 @@ pub fn capture_region_to_file(
 ) -> bool {
     #[cfg(target_os = "macos")]
     {
-        macos_capture_region_to_file(
+        capture_display_region(
             output_path,
             source_image_width,
             source_image_height,
@@ -156,6 +156,74 @@ pub fn capture_region_to_file(
         );
         false
     }
+}
+
+fn capture_with_backend_fallback(
+    screen_capture_kit: impl FnOnce() -> ScreenshotResult,
+    core_graphics: impl FnOnce() -> ScreenshotResult,
+) -> ScreenshotResult {
+    let screen_capture_kit_result = screen_capture_kit();
+    if screen_capture_kit_result.success {
+        return screen_capture_kit_result;
+    }
+
+    let core_graphics_result = core_graphics();
+    if core_graphics_result.success {
+        return core_graphics_result;
+    }
+
+    ScreenshotResult {
+        success: false,
+        path: String::new(),
+        message: format!(
+            "ScreenCaptureKit failed: {}; CoreGraphics failed: {}",
+            screen_capture_kit_result.message, core_graphics_result.message
+        ),
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn capture_display_preview(output_path: &str) -> ScreenshotResult {
+    capture_with_backend_fallback(
+        || macos_screen_capture_kit_preview(output_path),
+        || macos_core_graphics_screenshot_preview(output_path),
+    )
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn capture_display_region(
+    output_path: &str,
+    source_image_width: u32,
+    source_image_height: u32,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> ScreenshotResult {
+    capture_with_backend_fallback(
+        || {
+            macos_screen_capture_kit_region(
+                output_path,
+                source_image_width,
+                source_image_height,
+                x,
+                y,
+                width,
+                height,
+            )
+        },
+        || {
+            macos_core_graphics_capture_region_to_file(
+                output_path,
+                source_image_width,
+                source_image_height,
+                x,
+                y,
+                width,
+                height,
+            )
+        },
+    )
 }
 
 fn screen_capture_permission_result(
@@ -393,7 +461,33 @@ fn macos_screenshot(output_path: &str) -> ScreenshotResult {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_screenshot_preview(output_path: &str) -> ScreenshotResult {
+fn macos_screen_capture_kit_preview(_output_path: &str) -> ScreenshotResult {
+    ScreenshotResult {
+        success: false,
+        path: String::new(),
+        message: "ScreenCaptureKit backend is not implemented in this build".into(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_screen_capture_kit_region(
+    _output_path: &str,
+    _source_image_width: u32,
+    _source_image_height: u32,
+    _x: u32,
+    _y: u32,
+    _width: u32,
+    _height: u32,
+) -> ScreenshotResult {
+    ScreenshotResult {
+        success: false,
+        path: String::new(),
+        message: "ScreenCaptureKit backend is not implemented in this build".into(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_core_graphics_screenshot_preview(output_path: &str) -> ScreenshotResult {
     use std::ffi::c_void;
 
     if let Some(result) =
@@ -501,7 +595,7 @@ fn macos_screenshot_preview(output_path: &str) -> ScreenshotResult {
             ScreenshotResult {
                 success: true,
                 path: output_path.to_string(),
-                message: "Screenshot preview captured".into(),
+                message: "Screenshot preview captured (CoreGraphics fallback)".into(),
             }
         } else {
             ScreenshotResult {
@@ -514,7 +608,7 @@ fn macos_screenshot_preview(output_path: &str) -> ScreenshotResult {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_capture_region_to_file(
+fn macos_core_graphics_capture_region_to_file(
     output_path: &str,
     source_image_width: u32,
     source_image_height: u32,
@@ -660,7 +754,7 @@ fn macos_capture_region_to_file(
             ScreenshotResult {
                 success: true,
                 path: output_path.to_string(),
-                message: "Region screenshot captured".into(),
+                message: "Region screenshot captured (CoreGraphics fallback)".into(),
             }
         } else {
             ScreenshotResult {
@@ -675,7 +769,8 @@ fn macos_capture_region_to_file(
 #[cfg(test)]
 mod tests {
     use super::{
-        map_pixel_selection_to_display_rect, save_rgba_png, screen_capture_permission_result, RectF,
+        capture_with_backend_fallback, map_pixel_selection_to_display_rect, save_rgba_png,
+        screen_capture_permission_result, RectF, ScreenshotResult,
     };
     use image::GenericImageView;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -686,6 +781,51 @@ mod tests {
             .unwrap_or_default()
             .as_nanos();
         std::env::temp_dir().join(format!("nimbletools_{}_{}.png", name, ts))
+    }
+
+    fn fake_capture(success: bool, path: &str, message: &str) -> ScreenshotResult {
+        ScreenshotResult {
+            success,
+            path: path.to_string(),
+            message: message.to_string(),
+        }
+    }
+
+    #[test]
+    fn capture_backend_prefers_screen_capture_kit_when_available() {
+        let result = capture_with_backend_fallback(
+            || fake_capture(true, "/tmp/sck.png", "ScreenCaptureKit captured"),
+            || fake_capture(true, "/tmp/cg.png", "CoreGraphics captured"),
+        );
+
+        assert!(result.success);
+        assert_eq!(result.path, "/tmp/sck.png");
+        assert_eq!(result.message, "ScreenCaptureKit captured");
+    }
+
+    #[test]
+    fn capture_backend_falls_back_to_core_graphics_when_screen_capture_kit_fails() {
+        let result = capture_with_backend_fallback(
+            || fake_capture(false, "", "ScreenCaptureKit unavailable"),
+            || fake_capture(true, "/tmp/cg.png", "CoreGraphics captured"),
+        );
+
+        assert!(result.success);
+        assert_eq!(result.path, "/tmp/cg.png");
+        assert_eq!(result.message, "CoreGraphics captured");
+    }
+
+    #[test]
+    fn capture_backend_reports_both_failures_when_no_backend_succeeds() {
+        let result = capture_with_backend_fallback(
+            || fake_capture(false, "", "ScreenCaptureKit unavailable"),
+            || fake_capture(false, "", "CoreGraphics permission denied"),
+        );
+
+        assert!(!result.success);
+        assert_eq!(result.path, "");
+        assert!(result.message.contains("ScreenCaptureKit unavailable"));
+        assert!(result.message.contains("CoreGraphics permission denied"));
     }
 
     #[test]

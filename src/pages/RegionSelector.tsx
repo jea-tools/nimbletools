@@ -3,21 +3,29 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { getEscapeAction, isPointInSelection, shouldStartNewSelectionOnMouseDown, type Phase } from './RegionSelector.logic';
+import {
+  canConfirmSelection,
+  cursorForSelectionHit,
+  getEscapeAction,
+  hitTestSelection,
+  hitTestToolbar,
+  moveSelection,
+  normalizeSelection,
+  resizeSelection,
+  selectionHandleRects,
+  shouldConfirmSelectionOnDoubleClick,
+  shouldStartNewSelectionOnMouseDown,
+  toolbarLayoutForSelection,
+  type Bounds,
+  type Phase,
+  type Point,
+  type ResizeHandle,
+  type SelectionRect,
+} from './RegionSelector.logic';
 
-const MIN_SELECTION_PX = 10;
-const SETTINGS_KEY = 'nimble_screenshot_confirm_mode';
-
-type ConfirmMode = 'auto' | 'dblclick';
-
-function getConfirmMode(): ConfirmMode {
-  try {
-    const v = localStorage.getItem(SETTINGS_KEY);
-    return v === 'dblclick' ? 'dblclick' : 'auto';
-  } catch {
-    return 'auto';
-  }
-}
+type Interaction =
+  | { type: 'move'; startPoint: Point; initialSelection: SelectionRect }
+  | { type: 'resize'; handle: ResizeHandle; initialSelection: SelectionRect };
 
 async function closeSelf() {
   try {
@@ -25,6 +33,15 @@ async function closeSelf() {
   } catch {
     try { await getCurrentWindow().destroy(); } catch { /* noop */ }
   }
+}
+
+async function cancelSelection(sourcePath: string) {
+  try {
+    await invoke('cancel_region_selector', { sourcePath });
+  } catch (err) {
+    console.error('cancel_region_selector failed:', err);
+  }
+  await closeSelf();
 }
 
 /**
@@ -43,10 +60,11 @@ export default function RegionSelector() {
   const phaseRef = useRef<Phase>('crosshair');
   const startRef = useRef({ x: 0, y: 0 });
   const mouseRef = useRef({ x: 0, y: 0 });
-  const selectionRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const selectionRef = useRef<SelectionRect | null>(null);
+  const interactionRef = useRef<Interaction | null>(null);
   const redrawFrameRef = useRef<number | null>(null);
 
-  const [confirmMode] = useState<ConfirmMode>(getConfirmMode);
+  const [cursor, setCursor] = useState('crosshair');
 
   useEffect(() => {
     const img = new Image();
@@ -54,9 +72,9 @@ export default function RegionSelector() {
       imgRef.current = img;
       redraw();
     };
-    img.onerror = () => closeSelf();
+    img.onerror = () => cancelSelection(fullImagePath);
     img.src = imageSrc;
-  }, [imageSrc]);
+  }, [fullImagePath, imageSrc]);
 
   // 确保 webview 获取键盘焦点（ESC 等按键能被接收）
   useEffect(() => {
@@ -68,11 +86,13 @@ export default function RegionSelector() {
   const resetToCrosshair = useCallback(() => {
     phaseRef.current = 'crosshair';
     selectionRef.current = null;
+    interactionRef.current = null;
+    setCursor('crosshair');
     redraw();
   }, []);
 
   /** 提交截图 */
-  const submitSelection = useCallback(async (sel: { x: number; y: number; w: number; h: number }) => {
+  const submitSelection = useCallback(async (sel: SelectionRect) => {
     const img = imgRef.current;
     const canvas = canvasRef.current;
     if (!img || !canvas) return;
@@ -95,6 +115,12 @@ export default function RegionSelector() {
     }
     await closeSelf();
   }, [fullImagePath]);
+
+  const confirmSelection = useCallback(async () => {
+    const sel = selectionRef.current;
+    if (!canConfirmSelection(sel)) return;
+    await submitSelection(sel);
+  }, [submitSelection]);
 
   /** 核心绘制 */
   const redraw = useCallback(() => {
@@ -132,7 +158,7 @@ export default function RegionSelector() {
       rw = Math.abs(mx - sx);
       rh = Math.abs(my - sy);
       hasRect = rw > 1 && rh > 1;
-    } else if (phase === 'selected' && selectionRef.current) {
+    } else if ((phase === 'selected' || phase === 'moving' || phase === 'resizing') && selectionRef.current) {
       rx = selectionRef.current.x;
       ry = selectionRef.current.y;
       rw = selectionRef.current.w;
@@ -155,6 +181,16 @@ export default function RegionSelector() {
       ctx.setLineDash([]);
       ctx.strokeRect(rx, ry, rw, rh);
 
+      if (selectionRef.current && (phase === 'selected' || phase === 'moving' || phase === 'resizing')) {
+        for (const handle of selectionHandleRects(selectionRef.current)) {
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#0ea5e9';
+          ctx.lineWidth = 1;
+          ctx.fillRect(handle.x, handle.y, handle.w, handle.h);
+          ctx.strokeRect(handle.x, handle.y, handle.w, handle.h);
+        }
+      }
+
       // 尺寸标签
       const scaleX = img.naturalWidth / W;
       const scaleY = img.naturalHeight / H;
@@ -170,17 +206,37 @@ export default function RegionSelector() {
       ctx.fillStyle = '#fff';
       ctx.fillText(label, labelX + 6, labelY - 1);
 
-      // dblclick 模式提示
-      if (phase === 'selected') {
-        const hint = '双击选区确认截图';
-        ctx.font = '14px -apple-system, sans-serif';
-        const hintW = ctx.measureText(hint).width + 16;
-        const hintX = rx + (rw - hintW) / 2;
-        const hintY = ry + rh / 2;
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(hintX, hintY - 12, hintW, 28);
-        ctx.fillStyle = '#fff';
-        ctx.fillText(hint, hintX + 8, hintY + 6);
+      if (phase === 'selected' && selectionRef.current) {
+        const toolbar = toolbarLayoutForSelection(selectionRef.current, { width: W, height: H });
+        ctx.fillStyle = 'rgba(17, 24, 39, 0.92)';
+        ctx.fillRect(toolbar.x, toolbar.y, toolbar.w, toolbar.h);
+        ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(toolbar.x + 0.5, toolbar.y + 0.5, toolbar.w - 1, toolbar.h - 1);
+
+        ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        for (const button of toolbar.buttons) {
+          ctx.fillStyle = button.action === 'confirm' ? '#0ea5e9' : 'rgba(255,255,255,0.12)';
+          ctx.fillRect(button.x, button.y, button.w, button.h);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(button.label, button.x + button.w / 2, button.y + button.h / 2);
+        }
+        ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
+
+        const hint = '双击选区或点确定';
+        ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        const hintW = ctx.measureText(hint).width + 14;
+        const hintX = rx + Math.max(0, (rw - hintW) / 2);
+        const hintY = ry + rh - 10;
+        if (rw >= hintW + 12 && rh >= 42) {
+          ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          ctx.fillRect(hintX, hintY - 18, hintW, 24);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(hint, hintX + 7, hintY - 2);
+        }
       }
     }
 
@@ -198,6 +254,27 @@ export default function RegionSelector() {
       ctx.setLineDash([]);
     }
   }, []);
+
+  const canvasBounds = useCallback((): Bounds => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }), []);
+
+  const updateHoverCursor = useCallback((point: Point) => {
+    const selection = selectionRef.current;
+    const phase = phaseRef.current;
+    if (!selection || phase !== 'selected') {
+      setCursor(phase === 'crosshair' || phase === 'drawing' ? 'crosshair' : 'default');
+      return;
+    }
+
+    if (hitTestToolbar(selection, canvasBounds(), point)) {
+      setCursor('pointer');
+      return;
+    }
+
+    setCursor(cursorForSelectionHit(hitTestSelection(selection, point)));
+  }, [canvasBounds]);
 
   const scheduleRedraw = useCallback(() => {
     if (redrawFrameRef.current !== null) return;
@@ -218,59 +295,117 @@ export default function RegionSelector() {
     if (!canvas) return;
 
     const onMouseMove = (e: MouseEvent) => {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
+      const point = { x: e.clientX, y: e.clientY };
+      mouseRef.current = point;
+      const interaction = interactionRef.current;
+
+      if (interaction?.type === 'move') {
+        selectionRef.current = moveSelection(
+          interaction.initialSelection,
+          interaction.startPoint,
+          point,
+          canvasBounds(),
+        );
+      } else if (interaction?.type === 'resize') {
+        selectionRef.current = resizeSelection(
+          interaction.initialSelection,
+          interaction.handle,
+          point,
+          canvasBounds(),
+        );
+      } else {
+        updateHoverCursor(point);
+      }
+
       scheduleRedraw();
     };
 
-    const onMouseDown = (e: MouseEvent) => {
+    const onMouseDown = async (e: MouseEvent) => {
       if (e.button !== 0) return;
 
       const point = { x: e.clientX, y: e.clientY };
-      if (!shouldStartNewSelectionOnMouseDown(phaseRef.current, selectionRef.current, point)) {
+      const selection = selectionRef.current;
+
+      if (phaseRef.current === 'selected' && selection) {
+        const toolbarAction = hitTestToolbar(selection, canvasBounds(), point);
+        if (toolbarAction === 'confirm') {
+          await confirmSelection();
+          return;
+        }
+        if (toolbarAction === 'reset') {
+          resetToCrosshair();
+          return;
+        }
+        if (toolbarAction === 'cancel') {
+          await cancelSelection(fullImagePath);
+          return;
+        }
+      }
+
+      if (!shouldStartNewSelectionOnMouseDown(phaseRef.current, selection, point) && selection) {
+        const hit = hitTestSelection(selection, point);
+        if (hit === 'inside') {
+          phaseRef.current = 'moving';
+          interactionRef.current = { type: 'move', startPoint: point, initialSelection: selection };
+          setCursor('move');
+          mouseRef.current = point;
+          scheduleRedraw();
+          return;
+        }
+        if (hit !== 'outside') {
+          phaseRef.current = 'resizing';
+          interactionRef.current = { type: 'resize', handle: hit, initialSelection: selection };
+          setCursor(cursorForSelectionHit(hit));
+          mouseRef.current = point;
+          scheduleRedraw();
+          return;
+        }
+
         mouseRef.current = point;
         return;
       }
 
       phaseRef.current = 'drawing';
+      interactionRef.current = null;
       startRef.current = point;
       mouseRef.current = point;
       selectionRef.current = null;
+      setCursor('crosshair');
+      scheduleRedraw();
     };
 
     const onMouseUp = async (e: MouseEvent) => {
-      if (phaseRef.current !== 'drawing') return;
+      const phase = phaseRef.current;
+      if (phase === 'moving' || phase === 'resizing') {
+        phaseRef.current = 'selected';
+        interactionRef.current = null;
+        updateHoverCursor({ x: e.clientX, y: e.clientY });
+        scheduleRedraw();
+        return;
+      }
 
-      const sx = startRef.current.x;
-      const sy = startRef.current.y;
-      const rx = Math.min(sx, e.clientX);
-      const ry = Math.min(sy, e.clientY);
-      const rw = Math.abs(e.clientX - sx);
-      const rh = Math.abs(e.clientY - sy);
+      if (phase !== 'drawing') return;
 
-      // 太小 → 回到十字准星
-      if (rw < MIN_SELECTION_PX || rh < MIN_SELECTION_PX) {
+      const sel = normalizeSelection(startRef.current, { x: e.clientX, y: e.clientY });
+      if (!sel) {
         resetToCrosshair();
         return;
       }
 
-      const sel = { x: rx, y: ry, w: rw, h: rh };
-
-      if (confirmMode === 'auto') {
-        await submitSelection(sel);
-      } else {
-        // dblclick 模式：冻结选区
-        phaseRef.current = 'selected';
-        selectionRef.current = sel;
-        redraw();
-      }
+      phaseRef.current = 'selected';
+      interactionRef.current = null;
+      selectionRef.current = sel;
+      updateHoverCursor({ x: e.clientX, y: e.clientY });
+      redraw();
     };
 
     const onDblClick = async (e: MouseEvent) => {
-      if (confirmMode !== 'dblclick' || phaseRef.current !== 'selected' || !selectionRef.current) return;
-
-      const sel = selectionRef.current;
-      if (isPointInSelection(sel, { x: e.clientX, y: e.clientY })) {
-        await submitSelection(sel);
+      if (shouldConfirmSelectionOnDoubleClick(
+        phaseRef.current,
+        selectionRef.current,
+        { x: e.clientX, y: e.clientY },
+      )) {
+        await confirmSelection();
       }
     };
 
@@ -285,13 +420,20 @@ export default function RegionSelector() {
       canvas.removeEventListener('mouseup', onMouseUp);
       canvas.removeEventListener('dblclick', onDblClick);
     };
-  }, [confirmMode, redraw, scheduleRedraw, submitSelection, resetToCrosshair]);
+  }, [
+    canvasBounds,
+    confirmSelection,
+    redraw,
+    resetToCrosshair,
+    scheduleRedraw,
+    updateHoverCursor,
+  ]);
 
   const handleEscape = useCallback(async () => {
     if (getEscapeAction(phaseRef.current) === 'close') {
-      await closeSelf();
+      await cancelSelection(fullImagePath);
     }
-  }, []);
+  }, [fullImagePath]);
 
   // ESC：通过 Rust 后端 CGEventSourceKeyState 轮询检测
   useEffect(() => {
@@ -304,27 +446,34 @@ export default function RegionSelector() {
   // 键盘焦点正常时的兜底路径；后端轮询仍保留用于窗口焦点不稳定的场景
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      handleEscape();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleEscape();
+        return;
+      }
+
+      if (e.key === 'Enter' && phaseRef.current === 'selected' && canConfirmSelection(selectionRef.current)) {
+        e.preventDefault();
+        confirmSelection();
+      }
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [handleEscape]);
+  }, [confirmSelection, handleEscape]);
 
   // 右键取消
   useEffect(() => {
     const onContextMenu = async (e: MouseEvent) => {
       e.preventDefault();
       if (phaseRef.current === 'crosshair') {
-        await closeSelf();
+        await cancelSelection(fullImagePath);
       } else {
         resetToCrosshair();
       }
     };
     window.addEventListener('contextmenu', onContextMenu);
     return () => window.removeEventListener('contextmenu', onContextMenu);
-  }, [resetToCrosshair]);
+  }, [fullImagePath, resetToCrosshair]);
 
   return (
     <canvas
@@ -335,7 +484,7 @@ export default function RegionSelector() {
         left: 0,
         width: '100vw',
         height: '100vh',
-        cursor: 'crosshair',
+        cursor,
         margin: 0,
         padding: 0,
       }}

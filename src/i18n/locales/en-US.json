@@ -211,9 +211,8 @@
     "system": "System",
     "language": "Language",
     "outputDir": "Default Output Directory",
-    "screenshotMode": "Screenshot Confirm",
-    "screenshotAuto": "Capture on selection",
-    "screenshotDblclick": "Double-click to confirm",
+    "screenshotMode": "Screenshot Selection",
+    "screenshotAdjustable": "Adjust after selecting, then confirm or double-click",
     "about": "About",
     "version": "Version"
   },
