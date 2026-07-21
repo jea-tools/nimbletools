@@ -21,6 +21,26 @@ export interface CanvasTextPatch {
   rgbaData: Uint8Array;
 }
 
+interface CanvasImageResponse {
+  ok: boolean;
+  status: number;
+  blob(): Promise<Blob>;
+}
+
+type CanvasImageFetcher = (url: string) => Promise<CanvasImageResponse>;
+
+export async function createCanvasSafeImageUrl(
+  sourceUrl: string,
+  fetchImage: CanvasImageFetcher = (url) => fetch(url),
+  createObjectUrl: (blob: Blob) => string = (blob) => URL.createObjectURL(blob),
+): Promise<string> {
+  const response = await fetchImage(sourceUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to load screenshot preview: HTTP ${response.status}`);
+  }
+  return createObjectUrl(await response.blob());
+}
+
 export function getCanvasClipboardPayload(canvas: HTMLCanvasElement): CanvasClipboardPayload | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;

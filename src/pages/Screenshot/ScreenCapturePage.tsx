@@ -15,23 +15,16 @@ import {
   getCanvasTextPatches,
   waitForNextPaint,
 } from '../../utils/canvasClipboard';
+import {
+  renderScreenshotActions,
+  type AnnotationTool,
+  type ScreenshotAction,
+} from '../../utils/screenshotAnnotations';
 
 interface ScreenshotResult { success: boolean; path: string; message: string; }
 
-type ToolType = 'pen' | 'rect' | 'circle' | 'arrow' | 'line' | 'text';
-
 interface ScreenCapturePageProps {
   externalMessage?: string;
-}
-
-interface DrawAction {
-  type: ToolType;
-  color: string;
-  lineWidth: number;
-  points?: { x: number; y: number }[];
-  startX?: number; startY?: number;
-  endX?: number; endY?: number;
-  text?: string;
 }
 
 const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ffffff', '#000000'];
@@ -39,7 +32,7 @@ const LINE_WIDTHS = [2, 4, 6, 8];
 
 const canCopyViaNativeAnnotationRenderer = (
   sourcePath: string | null,
-  currentAction: DrawAction | null,
+  currentAction: ScreenshotAction | null,
 ) => Boolean(sourcePath) && !currentAction;
 
 export default function ScreenCapturePage({ externalMessage = '' }: ScreenCapturePageProps) {
@@ -47,12 +40,12 @@ export default function ScreenCapturePage({ externalMessage = '' }: ScreenCaptur
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [, setImageSrc] = useState<string | null>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
-  const [tool, setTool] = useState<ToolType>('pen');
+  const [tool, setTool] = useState<AnnotationTool>('pen');
   const [color, setColor] = useState('#ef4444');
   const [lineWidth, setLineWidth] = useState(4);
-  const [actions, setActions] = useState<DrawAction[]>([]);
+  const [actions, setActions] = useState<ScreenshotAction[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentAction, setCurrentAction] = useState<DrawAction | null>(null);
+  const [currentAction, setCurrentAction] = useState<ScreenshotAction | null>(null);
   const [message, setMessage] = useState('');
   const [hotkey, setHotkeyState] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -157,82 +150,10 @@ export default function ScreenCapturePage({ externalMessage = '' }: ScreenCaptur
     canvas.height = imageObj.height;
     ctx.drawImage(imageObj, 0, 0);
 
-    // 重绘所有标注
-    const allActions = currentAction ? [...actions, currentAction] : actions;
-    for (const action of allActions) {
-      ctx.strokeStyle = action.color;
-      ctx.fillStyle = action.color;
-      ctx.lineWidth = action.lineWidth;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      switch (action.type) {
-        case 'pen':
-          if (action.points && action.points.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo(action.points[0].x, action.points[0].y);
-            for (let i = 1; i < action.points.length; i++) {
-              ctx.lineTo(action.points[i].x, action.points[i].y);
-            }
-            ctx.stroke();
-          }
-          break;
-        case 'rect':
-          if (action.startX !== undefined && action.endX !== undefined) {
-            ctx.strokeRect(
-              action.startX, action.startY!,
-              action.endX - action.startX, action.endY! - action.startY!
-            );
-          }
-          break;
-        case 'circle':
-          if (action.startX !== undefined && action.endX !== undefined) {
-            const rx = Math.abs(action.endX - action.startX) / 2;
-            const ry = Math.abs(action.endY! - action.startY!) / 2;
-            const cx = action.startX + (action.endX - action.startX) / 2;
-            const cy = action.startY! + (action.endY! - action.startY!) / 2;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          break;
-        case 'arrow':
-        case 'line':
-          if (action.startX !== undefined && action.endX !== undefined) {
-            ctx.beginPath();
-            ctx.moveTo(action.startX, action.startY!);
-            ctx.lineTo(action.endX, action.endY!);
-            ctx.stroke();
-            if (action.type === 'arrow') {
-              drawArrowHead(ctx, action.startX, action.startY!, action.endX, action.endY!, action.lineWidth);
-            }
-          }
-          break;
-        case 'text':
-          if (action.text && action.startX !== undefined) {
-            ctx.font = `${action.lineWidth * 6}px Inter, sans-serif`;
-            ctx.fillText(action.text, action.startX, action.startY!);
-          }
-          break;
-      }
-    }
+    renderScreenshotActions(ctx, currentAction ? [...actions, currentAction] : actions);
   }, [imageObj, actions, currentAction]);
 
   useEffect(() => { redraw(); }, [redraw]);
-
-  const drawArrowHead = (
-    ctx: CanvasRenderingContext2D,
-    fromX: number, fromY: number, toX: number, toY: number, lw: number
-  ) => {
-    const headLen = lw * 4;
-    const angle = Math.atan2(toY - fromY, toX - fromX);
-    ctx.beginPath();
-    ctx.moveTo(toX, toY);
-    ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
-    ctx.moveTo(toX, toY);
-    ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
-    ctx.stroke();
-  };
 
   const getCanvasCoords = (e: React.MouseEvent): { x: number; y: number } => {
     const canvas = canvasRef.current!;
@@ -259,7 +180,7 @@ export default function ScreenCapturePage({ externalMessage = '' }: ScreenCaptur
       return;
     }
 
-    const action: DrawAction = {
+    const action: ScreenshotAction = {
       type: tool, color, lineWidth,
       ...(tool === 'pen' ? { points: [{ x, y }] } : { startX: x, startY: y, endX: x, endY: y }),
     };
@@ -398,7 +319,7 @@ export default function ScreenCapturePage({ externalMessage = '' }: ScreenCaptur
     }
   };
 
-  const tools: { type: ToolType; icon: React.ReactNode; label: string }[] = [
+  const tools: { type: AnnotationTool; icon: React.ReactNode; label: string }[] = [
     { type: 'pen', icon: <Pen size={16} />, label: 'Pen' },
     { type: 'rect', icon: <Square size={16} />, label: 'Rect' },
     { type: 'circle', icon: <Circle size={16} />, label: 'Circle' },

@@ -1,4 +1,12 @@
-export type Phase = 'crosshair' | 'drawing' | 'selected' | 'moving' | 'resizing';
+export type Phase =
+  | 'crosshair'
+  | 'drawing'
+  | 'selected'
+  | 'moving'
+  | 'resizing'
+  | 'annotating'
+  | 'exporting'
+  | 'canceled';
 export type EscapeAction = 'close';
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 export type SelectionHit = ResizeHandle | 'inside' | 'outside';
@@ -34,6 +42,9 @@ export function getEscapeAction(phase: Phase): EscapeAction {
     case 'selected':
     case 'moving':
     case 'resizing':
+    case 'annotating':
+    case 'exporting':
+    case 'canceled':
       return 'close';
   }
 }

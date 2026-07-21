@@ -17,7 +17,7 @@ use commands::file::{apply_rename, merge_files, preview_rename, split_file};
 use commands::hash::{calculate_file_hash, calculate_text_hash};
 use commands::hotkey::{
     cancel_region_selector, close_screenshot_editor, crop_and_open_editor, get_hotkey,
-    update_hotkey, HotkeyState,
+    show_region_selector, update_hotkey, HotkeyState,
 };
 use commands::image::{
     compress_images, convert_images, get_image_info, merge_images, resize_images,
@@ -111,6 +111,7 @@ pub fn run() {
             get_hotkey,
             close_screenshot_editor,
             cancel_region_selector,
+            show_region_selector,
             crop_and_open_editor,
         ])
         .build(tauri::generate_context!())

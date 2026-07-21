@@ -588,7 +588,7 @@ fn macos_core_graphics_screenshot_preview(output_path: &str) -> ScreenshotResult
             };
         }
 
-        let saved = save_cgimage_as_file(output_path, image, b"public.jpeg\0");
+        let saved = save_cgimage_as_file(output_path, image, b"public.png\0");
         CFRelease(image);
 
         if saved.is_ok() {

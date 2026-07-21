@@ -19,6 +19,9 @@ assert.equal(getEscapeAction('drawing'), 'close');
 assert.equal(getEscapeAction('selected'), 'close');
 assert.equal(getEscapeAction('moving'), 'close');
 assert.equal(getEscapeAction('resizing'), 'close');
+assert.equal(getEscapeAction('annotating'), 'close');
+assert.equal(getEscapeAction('exporting'), 'close');
+assert.equal(getEscapeAction('canceled'), 'close');
 
 const selection = { x: 10, y: 20, w: 100, h: 80 };
 const bounds = { width: 300, height: 220 };

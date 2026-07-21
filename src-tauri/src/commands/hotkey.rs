@@ -281,8 +281,8 @@ fn screenshot_capture_delay_ms() -> u64 {
     }
 }
 
-fn region_selector_elevate_delay_ms() -> u64 {
-    30
+fn region_selector_should_start_visible() -> bool {
+    false
 }
 
 fn prepare_clipboard_popup_open(app: &AppHandle) {
@@ -512,7 +512,7 @@ fn take_screenshot_from_hotkey(app: &AppHandle) {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let output_path = temp_dir.join(format!("nimbletools_screenshot_{}_preview.jpg", ts));
+    let output_path = temp_dir.join(screenshot_preview_file_name(ts));
     let output_str = output_path.to_string_lossy().to_string();
     let capture_delay_ms = screenshot_capture_delay_ms();
 
@@ -537,6 +537,10 @@ fn take_screenshot_from_hotkey(app: &AppHandle) {
     });
 }
 
+fn screenshot_preview_file_name(timestamp: u128) -> String {
+    format!("nimbletools_screenshot_{}_preview.png", timestamp)
+}
+
 fn notify_screenshot_capture_failed(app: &AppHandle, message: &str) {
     if let Some(main_win) = app.get_webview_window("main") {
         let _ = main_win.show();
@@ -556,37 +560,36 @@ fn open_region_selector(app: &AppHandle, image_path: &str) {
     let (pos_x, pos_y, mon_w, mon_h) =
         get_cursor_monitor_bounds(app).unwrap_or((0.0, 0.0, 1920.0, 1080.0));
 
-    let _ = tauri::WebviewWindowBuilder::new(app, "region-selector", url)
+    let builder = tauri::WebviewWindowBuilder::new(app, "region-selector", url)
         .title("")
         .position(pos_x, pos_y)
         .inner_size(mon_w, mon_h)
         .decorations(false)
         .always_on_top(true)
-        .focused(true)
-        .build();
+        .focused(false)
+        .visible(region_selector_should_start_visible());
+    match builder.build() {
+        Ok(window) => println!(
+            "[Screenshot] Region selector opened: {}",
+            window
+                .url()
+                .map(|url| url.to_string())
+                .unwrap_or_else(|error| format!("url unavailable: {}", error))
+        ),
+        Err(error) => {
+            cleanup_screenshot_temp(image_path);
+            eprintln!("[Screenshot] Failed to open region selector: {}", error);
+            return;
+        }
+    }
 
     // 启动 ESC 按键检测线程（轮询 CGEventSourceKeyState，不依赖窗口焦点）
-    start_esc_monitor(app, image_path.to_string());
-
-    // macOS: 延迟后在主线程提升窗口层级（覆盖菜单栏）
-    #[cfg(target_os = "macos")]
-    {
-        let app2 = app.clone();
-        let elevate_delay_ms = region_selector_elevate_delay_ms();
-        std::thread::spawn(move || {
-            if elevate_delay_ms > 0 {
-                std::thread::sleep(std::time::Duration::from_millis(elevate_delay_ms));
-            }
-            let _ = app2.run_on_main_thread(|| {
-                elevate_window_on_main_thread();
-            });
-        });
-    }
+    start_esc_monitor(app);
 }
 
-/// 轮询 ESC 按键状态，直接关闭区域选择器，并 emit 事件给前端作为兼容路径
+/// 轮询 ESC 按键状态并通知前端，由覆盖层状态机决定取消当前操作或关闭。
 /// macOS: 用 CGEventSourceKeyState 检测，不需要窗口焦点
-fn start_esc_monitor(app: &AppHandle, source_path: String) {
+fn start_esc_monitor(app: &AppHandle) {
     use tauri::Emitter;
 
     let app2 = app.clone();
@@ -603,12 +606,6 @@ fn start_esc_monitor(app: &AppHandle, source_path: String) {
             // 检测按下边沿（从 false→true），每次按下只 emit 一次
             if should_handle_esc_press(pressed, was_pressed) {
                 let _ = app2.emit_to("region-selector", "esc-pressed", ());
-                if let Some(selector) = app2.get_webview_window("region-selector") {
-                    if selector.close().is_ok() {
-                        cleanup_screenshot_temp(&source_path);
-                    }
-                }
-                break;
             }
             was_pressed = pressed;
 
@@ -645,7 +642,7 @@ fn is_esc_key_pressed() -> bool {
 mod tests {
     use super::{
         clipboard_popup_should_be_visible_when_built, clipboard_popup_should_use_tauri_focus,
-        region_selector_elevate_delay_ms, screenshot_capture_delay_ms, should_handle_esc_press,
+        region_selector_should_start_visible, screenshot_capture_delay_ms, should_handle_esc_press,
         should_hide_main_for_clipboard_popup, should_hide_main_for_screenshot_hotkey,
         should_restore_main_after_clipboard_popup_close,
         should_restore_previous_app_after_clipboard_popup_close,
@@ -708,9 +705,17 @@ mod tests {
     }
 
     #[test]
-    fn screenshot_hotkey_has_no_capture_delay_when_main_stays_visible() {
+    fn screenshot_overlay_waits_for_preview_before_becoming_visible() {
         assert_eq!(screenshot_capture_delay_ms(), 0);
-        assert_eq!(region_selector_elevate_delay_ms(), 30);
+        assert!(!region_selector_should_start_visible());
+    }
+
+    #[test]
+    fn screenshot_hotkey_preview_uses_lossless_png() {
+        assert_eq!(
+            super::screenshot_preview_file_name(123),
+            "nimbletools_screenshot_123_preview.png"
+        );
     }
 
     #[test]
@@ -754,16 +759,27 @@ fn elevate_window_on_main_thread() {
 
     unsafe {
         type IdFn = unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void;
+        type BoolFn = unsafe extern "C" fn(*mut c_void, *mut c_void, bool);
         type SetI64Fn = unsafe extern "C" fn(*mut c_void, *mut c_void, i64);
         type SetIdFn = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void);
 
         let id_msg: IdFn = std::mem::transmute(objc_msgSend as *const ());
+        let bool_msg: BoolFn = std::mem::transmute(objc_msgSend as *const ());
         let i64_msg: SetI64Fn = std::mem::transmute(objc_msgSend as *const ());
         let id_arg_msg: SetIdFn = std::mem::transmute(objc_msgSend as *const ());
 
         let ns_app = id_msg(
             objc_getClass(b"NSApplication\0".as_ptr()),
             sel_registerName(b"sharedApplication\0".as_ptr()),
+        );
+        if ns_app.is_null() {
+            return;
+        }
+
+        bool_msg(
+            ns_app,
+            sel_registerName(b"activateIgnoringOtherApps:\0".as_ptr()),
+            true,
         );
 
         // 获取所有窗口，找到最后一个（刚创建的 region-selector）
@@ -914,11 +930,39 @@ pub fn crop_and_open_editor(
 
 /// 取消区域选择并清理本次冻结预览图
 #[tauri::command]
-pub fn cancel_region_selector(app: AppHandle, source_path: String) {
+pub fn cancel_region_selector(app: AppHandle, source_path: String, reason: Option<String>) {
+    println!(
+        "[Screenshot] Closing region selector: {}",
+        reason.as_deref().unwrap_or("unknown")
+    );
+    cleanup_screenshot_temp(&source_path);
     if let Some(selector) = app.get_webview_window("region-selector") {
         let _ = selector.close();
     }
-    cleanup_screenshot_temp(&source_path);
+}
+
+/// 冻结图完成解码并绘制首帧后再显示覆盖层，避免加载期间出现黑屏。
+#[tauri::command]
+pub fn show_region_selector(app: AppHandle) -> Result<(), String> {
+    let selector = app
+        .get_webview_window("region-selector")
+        .ok_or_else(|| "Region selector window is unavailable".to_string())?;
+
+    selector
+        .show()
+        .map_err(|error| format!("Failed to show region selector: {}", error))?;
+
+    #[cfg(target_os = "macos")]
+    app.run_on_main_thread(elevate_window_on_main_thread)
+        .map_err(|error| format!("Failed to focus region selector: {}", error))?;
+
+    #[cfg(not(target_os = "macos"))]
+    selector
+        .set_focus()
+        .map_err(|error| format!("Failed to focus region selector: {}", error))?;
+
+    println!("[Screenshot] Region selector displayed after preview ready");
+    Ok(())
 }
 
 /// 打开截图标注编辑器窗口（定位到光标所在显示器）

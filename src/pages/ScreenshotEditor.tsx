@@ -12,18 +12,11 @@ import {
   getCanvasTextPatches,
   waitForNextPaint,
 } from '../utils/canvasClipboard';
-
-type ToolType = 'pen' | 'rect' | 'circle' | 'arrow' | 'line' | 'text';
-
-interface DrawAction {
-  type: ToolType;
-  color: string;
-  lineWidth: number;
-  points?: { x: number; y: number }[];
-  startX?: number; startY?: number;
-  endX?: number; endY?: number;
-  text?: string;
-}
+import {
+  renderScreenshotActions,
+  type AnnotationTool,
+  type ScreenshotAction,
+} from '../utils/screenshotAnnotations';
 
 /** 文本输入框状态（覆盖在画布上的内联编辑） */
 interface TextInputState {
@@ -37,7 +30,7 @@ interface TextInputState {
 const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ffffff', '#000000'];
 const LINE_WIDTHS = [2, 4, 6, 8];
 
-const TOOLS: { type: ToolType; icon: React.ReactNode; label: string }[] = [
+const TOOLS: { type: AnnotationTool; icon: React.ReactNode; label: string }[] = [
   { type: 'pen', icon: <Pen size={16} />, label: '画笔' },
   { type: 'rect', icon: <Square size={16} />, label: '矩形' },
   { type: 'circle', icon: <Circle size={16} />, label: '椭圆' },
@@ -48,19 +41,19 @@ const TOOLS: { type: ToolType; icon: React.ReactNode; label: string }[] = [
 
 const canCopyViaNativeAnnotationRenderer = (
   sourcePath: string | null,
-  currentAction: DrawAction | null,
+  currentAction: ScreenshotAction | null,
 ) => Boolean(sourcePath) && !currentAction;
 
 export default function ScreenshotEditor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const [imageObj, setImageObj] = useState<HTMLImageElement | null>(null);
-  const [tool, setTool] = useState<ToolType>('arrow');
+  const [tool, setTool] = useState<AnnotationTool>('arrow');
   const [color, setColor] = useState('#ef4444');
   const [lineWidth, setLineWidth] = useState(4);
-  const [actions, setActions] = useState<DrawAction[]>([]);
+  const [actions, setActions] = useState<ScreenshotAction[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentAction, setCurrentAction] = useState<DrawAction | null>(null);
+  const [currentAction, setCurrentAction] = useState<ScreenshotAction | null>(null);
   const [status, setStatus] = useState('');
   const [textInput, setTextInput] = useState<TextInputState | null>(null);
   const [sourceImagePath, setSourceImagePath] = useState<string | null>(null);
@@ -96,71 +89,7 @@ export default function ScreenshotEditor() {
     canvas.height = imageObj.height;
     ctx.drawImage(imageObj, 0, 0);
 
-    const allActions = currentAction ? [...actions, currentAction] : actions;
-    for (const action of allActions) {
-      ctx.strokeStyle = action.color;
-      ctx.fillStyle = action.color;
-      ctx.lineWidth = action.lineWidth;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      switch (action.type) {
-        case 'pen':
-          if (action.points && action.points.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo(action.points[0].x, action.points[0].y);
-            for (let i = 1; i < action.points.length; i++) {
-              ctx.lineTo(action.points[i].x, action.points[i].y);
-            }
-            ctx.stroke();
-          }
-          break;
-        case 'rect':
-          if (action.startX !== undefined && action.endX !== undefined) {
-            ctx.strokeRect(
-              action.startX, action.startY!,
-              action.endX - action.startX, action.endY! - action.startY!
-            );
-          }
-          break;
-        case 'circle':
-          if (action.startX !== undefined && action.endX !== undefined) {
-            const rx = Math.abs(action.endX - action.startX) / 2;
-            const ry = Math.abs(action.endY! - action.startY!) / 2;
-            const cx = action.startX + (action.endX - action.startX) / 2;
-            const cy = action.startY! + (action.endY! - action.startY!) / 2;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          break;
-        case 'arrow':
-        case 'line':
-          if (action.startX !== undefined && action.endX !== undefined) {
-            ctx.beginPath();
-            ctx.moveTo(action.startX, action.startY!);
-            ctx.lineTo(action.endX, action.endY!);
-            ctx.stroke();
-            if (action.type === 'arrow') {
-              const headLen = action.lineWidth * 4;
-              const angle = Math.atan2(action.endY! - action.startY!, action.endX - action.startX);
-              ctx.beginPath();
-              ctx.moveTo(action.endX, action.endY!);
-              ctx.lineTo(action.endX - headLen * Math.cos(angle - Math.PI / 6), action.endY! - headLen * Math.sin(angle - Math.PI / 6));
-              ctx.moveTo(action.endX, action.endY!);
-              ctx.lineTo(action.endX - headLen * Math.cos(angle + Math.PI / 6), action.endY! - headLen * Math.sin(angle + Math.PI / 6));
-              ctx.stroke();
-            }
-          }
-          break;
-        case 'text':
-          if (action.text && action.startX !== undefined) {
-            ctx.font = `${action.lineWidth * 6}px Inter, sans-serif`;
-            ctx.fillText(action.text, action.startX, action.startY!);
-          }
-          break;
-      }
-    }
+    renderScreenshotActions(ctx, currentAction ? [...actions, currentAction] : actions);
   }, [imageObj, actions, currentAction]);
 
   useEffect(() => { redraw(); }, [redraw]);
