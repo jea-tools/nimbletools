@@ -18,6 +18,21 @@ pub struct HotkeyState {
     clipboard: Mutex<String>,
     screenshot: Mutex<String>,
     config_path: Mutex<PathBuf>,
+    screenshot_focus: Mutex<ScreenshotFocusSession>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct ScreenshotFocusSession {
+    active: bool,
+    main_was_visible: bool,
+    main_was_focused: bool,
+    previous_app_pid: Option<i32>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ScreenshotFocusRestoreAction {
+    FocusMain,
+    RestorePreviousApp(Option<i32>),
 }
 
 impl HotkeyState {
@@ -26,6 +41,7 @@ impl HotkeyState {
             clipboard: Mutex::new(String::new()),
             screenshot: Mutex::new(String::new()),
             config_path: Mutex::new(PathBuf::new()),
+            screenshot_focus: Mutex::new(ScreenshotFocusSession::default()),
         }
     }
 }
@@ -285,6 +301,106 @@ fn region_selector_should_start_visible() -> bool {
     false
 }
 
+fn should_temporarily_hide_main_for_screenshot(main_was_visible: bool) -> bool {
+    main_was_visible
+}
+
+fn screenshot_focus_restore_action(
+    main_was_focused: bool,
+    previous_app_pid: Option<i32>,
+) -> ScreenshotFocusRestoreAction {
+    if main_was_focused {
+        ScreenshotFocusRestoreAction::FocusMain
+    } else {
+        ScreenshotFocusRestoreAction::RestorePreviousApp(previous_app_pid)
+    }
+}
+
+fn prepare_screenshot_focus_session(app: &AppHandle) {
+    let main = app.get_webview_window("main");
+    let main_was_visible = main
+        .as_ref()
+        .map(|window| window.is_visible().unwrap_or(false))
+        .unwrap_or(false);
+    let main_was_focused = main
+        .as_ref()
+        .map(|window| window.is_focused().unwrap_or(false))
+        .unwrap_or(false);
+    let previous_app_pid = if main_was_focused {
+        None
+    } else {
+        crate::commands::clipboard::platform::frontmost_app_pid()
+    };
+
+    if let Some(state) = app.try_state::<HotkeyState>() {
+        *state.screenshot_focus.lock().unwrap() = ScreenshotFocusSession {
+            active: true,
+            main_was_visible,
+            main_was_focused,
+            previous_app_pid,
+        };
+    }
+}
+
+fn hide_main_for_screenshot_overlay(app: &AppHandle) {
+    let should_hide = app
+        .try_state::<HotkeyState>()
+        .map(|state| {
+            let session = *state.screenshot_focus.lock().unwrap();
+            session.active && should_temporarily_hide_main_for_screenshot(session.main_was_visible)
+        })
+        .unwrap_or(false);
+    if should_hide {
+        if let Some(main) = app.get_webview_window("main") {
+            let _ = main.hide();
+        }
+    }
+}
+
+fn restore_screenshot_focus_session(app: &AppHandle, clear: bool) {
+    let session = app
+        .try_state::<HotkeyState>()
+        .map(|state| *state.screenshot_focus.lock().unwrap())
+        .unwrap_or_default();
+    if !session.active {
+        return;
+    }
+
+    match screenshot_focus_restore_action(session.main_was_focused, session.previous_app_pid) {
+        ScreenshotFocusRestoreAction::FocusMain => {
+            if let Some(main) = app.get_webview_window("main") {
+                let _ = main.show();
+                let _ = main.set_focus();
+            }
+        }
+        ScreenshotFocusRestoreAction::RestorePreviousApp(pid) => {
+            if session.main_was_visible {
+                if let Some(main) = app.get_webview_window("main") {
+                    let _ = main.show();
+                }
+            }
+            if !pid
+                .map(crate::commands::clipboard::platform::activate_app_by_pid)
+                .unwrap_or(false)
+            {
+                crate::commands::clipboard::platform::deactivate_app();
+            }
+        }
+    }
+
+    if clear {
+        if let Some(state) = app.try_state::<HotkeyState>() {
+            *state.screenshot_focus.lock().unwrap() = ScreenshotFocusSession::default();
+        }
+    }
+}
+
+fn clear_screenshot_focus_session(app: &AppHandle) {
+    if let Some(state) = app.try_state::<HotkeyState>() {
+        *state.screenshot_focus.lock().unwrap() = ScreenshotFocusSession::default();
+    }
+}
+
 fn prepare_clipboard_popup_open(app: &AppHandle) {
     // 记录主窗口是否聚焦（仅「正在使用」才算，后台可见不算）
     let main_focused = app
@@ -504,7 +620,10 @@ fn take_screenshot_from_hotkey(app: &AppHandle) {
     }
     if let Some(selector) = app.get_webview_window("region-selector") {
         let _ = selector.close();
+        restore_screenshot_focus_session(app, true);
     }
+
+    prepare_screenshot_focus_session(app);
 
     let app_clone = app.clone();
     let temp_dir = app.path().temp_dir().unwrap_or_default();
@@ -542,6 +661,7 @@ fn screenshot_preview_file_name(timestamp: u128) -> String {
 }
 
 fn notify_screenshot_capture_failed(app: &AppHandle, message: &str) {
+    clear_screenshot_focus_session(app);
     if let Some(main_win) = app.get_webview_window("main") {
         let _ = main_win.show();
         let _ = main_win.set_focus();
@@ -559,6 +679,8 @@ fn open_region_selector(app: &AppHandle, image_path: &str) {
 
     let (pos_x, pos_y, mon_w, mon_h) =
         get_cursor_monitor_bounds(app).unwrap_or((0.0, 0.0, 1920.0, 1080.0));
+
+    hide_main_for_screenshot_overlay(app);
 
     let builder = tauri::WebviewWindowBuilder::new(app, "region-selector", url)
         .title("")
@@ -578,6 +700,7 @@ fn open_region_selector(app: &AppHandle, image_path: &str) {
         ),
         Err(error) => {
             cleanup_screenshot_temp(image_path);
+            restore_screenshot_focus_session(app, true);
             eprintln!("[Screenshot] Failed to open region selector: {}", error);
             return;
         }
@@ -642,10 +765,12 @@ fn is_esc_key_pressed() -> bool {
 mod tests {
     use super::{
         clipboard_popup_should_be_visible_when_built, clipboard_popup_should_use_tauri_focus,
-        region_selector_should_start_visible, screenshot_capture_delay_ms, should_handle_esc_press,
+        region_selector_should_start_visible, screenshot_capture_delay_ms,
+        screenshot_focus_restore_action, should_handle_esc_press,
         should_hide_main_for_clipboard_popup, should_hide_main_for_screenshot_hotkey,
         should_restore_main_after_clipboard_popup_close,
         should_restore_previous_app_after_clipboard_popup_close,
+        should_temporarily_hide_main_for_screenshot, ScreenshotFocusRestoreAction,
     };
 
     #[test]
@@ -708,6 +833,20 @@ mod tests {
     fn screenshot_overlay_waits_for_preview_before_becoming_visible() {
         assert_eq!(screenshot_capture_delay_ms(), 0);
         assert!(!region_selector_should_start_visible());
+    }
+
+    #[test]
+    fn screenshot_overlay_does_not_leave_main_window_in_front() {
+        assert!(should_temporarily_hide_main_for_screenshot(true));
+        assert!(!should_temporarily_hide_main_for_screenshot(false));
+        assert_eq!(
+            screenshot_focus_restore_action(true, None),
+            ScreenshotFocusRestoreAction::FocusMain
+        );
+        assert_eq!(
+            screenshot_focus_restore_action(false, Some(42)),
+            ScreenshotFocusRestoreAction::RestorePreviousApp(Some(42))
+        );
     }
 
     #[test]
@@ -939,11 +1078,13 @@ pub fn cancel_region_selector(app: AppHandle, source_path: String, reason: Optio
     if let Some(selector) = app.get_webview_window("region-selector") {
         let _ = selector.close();
     }
+    restore_screenshot_focus_session(&app, true);
 }
 
 /// 冻结图完成解码并绘制首帧后再显示覆盖层，避免加载期间出现黑屏。
 #[tauri::command]
 pub fn show_region_selector(app: AppHandle) -> Result<(), String> {
+    hide_main_for_screenshot_overlay(&app);
     let selector = app
         .get_webview_window("region-selector")
         .ok_or_else(|| "Region selector window is unavailable".to_string())?;
@@ -974,6 +1115,7 @@ pub fn hide_region_selector(app: AppHandle) -> Result<(), String> {
     selector
         .hide()
         .map_err(|error| format!("Failed to hide region selector: {}", error))?;
+    restore_screenshot_focus_session(&app, false);
     println!("[Screenshot] Region selector hidden for background export");
     Ok(())
 }
