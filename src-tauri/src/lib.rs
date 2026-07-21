@@ -3,8 +3,8 @@ mod commands;
 use commands::clipboard::{
     check_accessibility_permission, clear_clipboard_history, close_clipboard_popup,
     copy_annotated_screenshot_to_clipboard, copy_clipboard_item, copy_image_to_clipboard,
-    get_clipboard_history, open_accessibility_settings, paste_clipboard_item,
-    remove_clipboard_item, set_clipboard_max_history, show_clipboard_popup,
+    copy_screenshot_selection_to_clipboard, get_clipboard_history, open_accessibility_settings,
+    paste_clipboard_item, remove_clipboard_item, set_clipboard_max_history, show_clipboard_popup,
     toggle_pin_clipboard_item, write_to_clipboard, ClipboardState,
 };
 use commands::curl::{
@@ -17,7 +17,7 @@ use commands::file::{apply_rename, merge_files, preview_rename, split_file};
 use commands::hash::{calculate_file_hash, calculate_text_hash};
 use commands::hotkey::{
     cancel_region_selector, close_screenshot_editor, crop_and_open_editor, get_hotkey,
-    show_region_selector, update_hotkey, HotkeyState,
+    hide_region_selector, show_region_selector, update_hotkey, HotkeyState,
 };
 use commands::image::{
     compress_images, convert_images, get_image_info, merge_images, resize_images,
@@ -88,6 +88,7 @@ pub fn run() {
             show_clipboard_popup,
             copy_image_to_clipboard,
             copy_annotated_screenshot_to_clipboard,
+            copy_screenshot_selection_to_clipboard,
             check_accessibility_permission,
             open_accessibility_settings,
             // Curl 工作台
@@ -112,6 +113,7 @@ pub fn run() {
             close_screenshot_editor,
             cancel_region_selector,
             show_region_selector,
+            hide_region_selector,
             crop_and_open_editor,
         ])
         .build(tauri::generate_context!())

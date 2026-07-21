@@ -965,6 +965,19 @@ pub fn show_region_selector(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 导出开始时立即隐藏覆盖层，后台仍保留 WebView 完成复制。
+#[tauri::command]
+pub fn hide_region_selector(app: AppHandle) -> Result<(), String> {
+    let selector = app
+        .get_webview_window("region-selector")
+        .ok_or_else(|| "Region selector window is unavailable".to_string())?;
+    selector
+        .hide()
+        .map_err(|error| format!("Failed to hide region selector: {}", error))?;
+    println!("[Screenshot] Region selector hidden for background export");
+    Ok(())
+}
+
 /// 打开截图标注编辑器窗口（定位到光标所在显示器）
 fn open_screenshot_editor(app: &AppHandle, image_path: &str) {
     let (win_w, win_h) = (900.0, 700.0);

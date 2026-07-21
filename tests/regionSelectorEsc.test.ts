@@ -10,6 +10,8 @@ import {
   normalizeSelection,
   resizeSelection,
   shouldConfirmSelectionOnDoubleClick,
+  shouldConfirmSelectionOnMouseDown,
+  shouldConfirmSelectionOnRepeatedPress,
   shouldStartNewSelectionOnMouseDown,
   toolbarLayoutForSelection,
 } from '../src/pages/RegionSelector.logic.ts';
@@ -113,5 +115,26 @@ assert.equal(hitTestToolbar(selection, bounds, { x: 0, y: 0 }), null);
 assert.equal(shouldConfirmSelectionOnDoubleClick('selected', selection, { x: 60, y: 60 }), true);
 assert.equal(shouldConfirmSelectionOnDoubleClick('selected', selection, { x: 0, y: 0 }), false);
 assert.equal(shouldConfirmSelectionOnDoubleClick('resizing', selection, { x: 60, y: 60 }), false);
+assert.equal(shouldConfirmSelectionOnMouseDown(2, 'selected', selection, { x: 60, y: 60 }), true);
+assert.equal(shouldConfirmSelectionOnMouseDown(1, 'selected', selection, { x: 60, y: 60 }), false);
+assert.equal(shouldConfirmSelectionOnMouseDown(2, 'selected', selection, { x: 0, y: 0 }), false);
+assert.equal(shouldConfirmSelectionOnMouseDown(2, 'moving', selection, { x: 60, y: 60 }), false);
+const firstPress = { timestamp: 1000, point: { x: 60, y: 60 } };
+assert.equal(
+  shouldConfirmSelectionOnRepeatedPress(firstPress, 1300, 'selected', selection, { x: 62, y: 61 }),
+  true,
+);
+assert.equal(
+  shouldConfirmSelectionOnRepeatedPress(firstPress, 1500, 'selected', selection, { x: 62, y: 61 }),
+  false,
+);
+assert.equal(
+  shouldConfirmSelectionOnRepeatedPress(firstPress, 1300, 'selected', selection, { x: 70, y: 70 }),
+  false,
+);
+assert.equal(
+  shouldConfirmSelectionOnRepeatedPress(null, 1300, 'selected', selection, { x: 60, y: 60 }),
+  false,
+);
 assert.equal(canConfirmSelection(selection), true);
 assert.equal(canConfirmSelection({ x: 0, y: 0, w: 9, h: 100 }), false);

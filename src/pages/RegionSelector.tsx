@@ -28,16 +28,21 @@ import {
   normalizeSelection,
   resizeSelection,
   selectionHandleRects,
+  shouldConfirmSelectionOnMouseDown,
+  shouldConfirmSelectionOnRepeatedPress,
   shouldStartNewSelectionOnMouseDown,
   type Bounds,
   type Phase,
   type Point,
   type ResizeHandle,
+  type SelectionPress,
   type SelectionRect,
 } from './RegionSelector.logic';
 import {
   createCanvasSafeImageUrl,
   getCanvasClipboardPayload,
+  getCanvasTextPatches,
+  runHiddenScreenshotExport,
 } from '../utils/canvasClipboard';
 import {
   annotationLineWidthForSelection,
@@ -147,6 +152,7 @@ export default function RegionSelector() {
   const redrawFrameRef = useRef<number | null>(null);
   const lastEscapeAtRef = useRef(0);
   const overlayShownRef = useRef(false);
+  const lastSelectionPressRef = useRef<SelectionPress | null>(null);
 
   const [phase, setPhaseState] = useState<Phase>('crosshair');
   const [selection, setSelectionState] = useState<SelectionRect | null>(null);
@@ -403,6 +409,7 @@ export default function RegionSelector() {
     setPhase('crosshair');
     setSelection(null);
     interactionRef.current = null;
+    lastSelectionPressRef.current = null;
     setDraftAction(null);
     applyHistory({ actions: [], redoActions: [] });
     setTextInput(null);
@@ -461,22 +468,39 @@ export default function RegionSelector() {
     setPhase('exporting');
     setErrorMessage('');
     try {
-      const exportCanvas = buildExportCanvas();
-      if (!exportCanvas) throw new Error('无法生成截图内容');
-      const payload = getCanvasClipboardPayload(exportCanvas);
-      if (!payload) throw new Error('无法读取截图像素');
-      await invoke('copy_image_to_clipboard', {
-        width: payload.width,
-        height: payload.height,
-        rgbaData: payload.rgbaData,
-      });
-      await closeOverlay(fullImagePath, 'copied');
+      await runHiddenScreenshotExport(
+        () => invoke('hide_region_selector'),
+        async () => {
+          const currentSelection = selectionRef.current;
+          if (!currentSelection) throw new Error('没有可复制的截图选区');
+          const sourceRect = sourceRectForSelection(currentSelection);
+          if (!sourceRect) throw new Error('无法计算截图选区');
+
+          const textPatchCanvas = document.createElement('canvas');
+          textPatchCanvas.width = sourceRect.w;
+          textPatchCanvas.height = sourceRect.h;
+          const textPatches = getCanvasTextPatches(textPatchCanvas, actionsRef.current);
+          if (!textPatches) throw new Error('无法生成文字标注');
+
+          await invoke('copy_screenshot_selection_to_clipboard', {
+            sourcePath: fullImagePath,
+            x: sourceRect.x,
+            y: sourceRect.y,
+            width: sourceRect.w,
+            height: sourceRect.h,
+            actions: actionsRef.current,
+            textPatches,
+          });
+          await closeOverlay(fullImagePath, 'copied');
+        },
+        () => invoke('show_region_selector'),
+      );
     } catch (error) {
-      console.error('copy_image_to_clipboard failed:', error);
+      console.error('copy_screenshot_selection_to_clipboard failed:', error);
       setErrorMessage(`复制失败: ${String(error)}`);
       setPhase('selected');
     }
-  }, [buildExportCanvas, fullImagePath, setPhase]);
+  }, [fullImagePath, setPhase, sourceRectForSelection]);
 
   const saveSelection = useCallback(async () => {
     if (phaseRef.current === 'exporting' || !canConfirmSelection(selectionRef.current)) return;
@@ -560,6 +584,13 @@ export default function RegionSelector() {
       const point = { x: e.clientX, y: e.clientY };
       mouseRef.current = point;
       const interaction = interactionRef.current;
+      const previousPress = lastSelectionPressRef.current;
+      if (previousPress && Math.hypot(
+        point.x - previousPress.point.x,
+        point.y - previousPress.point.y,
+      ) > 6) {
+        lastSelectionPressRef.current = null;
+      }
 
       if (draftActionRef.current && selectionRef.current) {
         const sourceRect = sourceRectForSelection(selectionRef.current);
@@ -600,6 +631,32 @@ export default function RegionSelector() {
       const point = { x: e.clientX, y: e.clientY };
       const currentSelection = selectionRef.current;
       const currentTool = activeToolRef.current;
+      const timestamp = performance.now();
+
+      if (
+        shouldConfirmSelectionOnMouseDown(e.detail, phaseRef.current, currentSelection, point)
+        || shouldConfirmSelectionOnRepeatedPress(
+          lastSelectionPressRef.current,
+          timestamp,
+          phaseRef.current,
+          currentSelection,
+          point,
+        )
+      ) {
+        e.preventDefault();
+        interactionRef.current = null;
+        lastSelectionPressRef.current = null;
+        setDraftAction(null);
+        setTextInput(null);
+        await copySelection();
+        return;
+      }
+
+      lastSelectionPressRef.current = phaseRef.current === 'selected'
+        && currentSelection
+        && hitTestSelection(currentSelection, point) === 'inside'
+        ? { timestamp, point }
+        : null;
 
       if (currentTool && currentSelection) {
         if (hitTestSelection(currentSelection, point) === 'outside') return;

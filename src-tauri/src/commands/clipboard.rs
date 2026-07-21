@@ -372,11 +372,103 @@ pub fn copy_annotated_screenshot_to_clipboard(
     copy_image_to_clipboard(width, height, rgba_data)
 }
 
+#[tauri::command]
+pub async fn copy_screenshot_selection_to_clipboard(
+    source_path: String,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    actions: Vec<ScreenshotAnnotation>,
+    text_patches: Option<Vec<ScreenshotTextPatch>>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let source = image::open(&source_path)
+            .map_err(|error| format!("Failed to open screenshot: {}", error))?
+            .to_rgba8();
+        let image = render_screenshot_selection_image(
+            source,
+            x,
+            y,
+            width,
+            height,
+            &actions,
+            text_patches.as_deref(),
+        )?;
+        copy_image_to_clipboard(
+            image.width() as usize,
+            image.height() as usize,
+            image.into_raw(),
+        )
+    })
+    .await
+    .map_err(|error| format!("Screenshot export task failed: {}", error))?
+}
+
 fn render_screenshot_annotations(
     source_path: &str,
     actions: &[ScreenshotAnnotation],
     text_patches: Option<&[ScreenshotTextPatch]>,
 ) -> Result<(usize, usize, Vec<u8>), String> {
+    validate_screenshot_text_patches(actions, text_patches)?;
+    let mut image = image::open(source_path)
+        .map_err(|e| format!("Failed to open screenshot: {}", e))?
+        .to_rgba8();
+    apply_screenshot_annotations(&mut image, actions, text_patches)?;
+    let width = image.width();
+    let height = image.height();
+
+    Ok((width as usize, height as usize, image.into_raw()))
+}
+
+fn render_screenshot_selection_image(
+    source: image::RgbaImage,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    actions: &[ScreenshotAnnotation],
+    text_patches: Option<&[ScreenshotTextPatch]>,
+) -> Result<image::RgbaImage, String> {
+    validate_screenshot_text_patches(actions, text_patches)?;
+    let right = x
+        .checked_add(width)
+        .ok_or_else(|| "Screenshot selection exceeds image bounds".to_string())?;
+    let bottom = y
+        .checked_add(height)
+        .ok_or_else(|| "Screenshot selection exceeds image bounds".to_string())?;
+    if width == 0 || height == 0 || right > source.width() || bottom > source.height() {
+        return Err("Screenshot selection exceeds image bounds".into());
+    }
+
+    let mut image = image::imageops::crop_imm(&source, x, y, width, height).to_image();
+    apply_screenshot_annotations(&mut image, actions, text_patches)?;
+    Ok(image)
+}
+
+fn apply_screenshot_annotations(
+    image: &mut image::RgbaImage,
+    actions: &[ScreenshotAnnotation],
+    text_patches: Option<&[ScreenshotTextPatch]>,
+) -> Result<(), String> {
+    let text_patches = text_patches.unwrap_or(&[]);
+    let mut text_patch_iter = text_patches.iter();
+    for action in actions {
+        if action.kind == "text" || action.text.is_some() {
+            if let Some(patch) = text_patch_iter.next() {
+                overlay_text_patch(image, patch)?;
+            }
+        } else {
+            draw_screenshot_annotation(image, action);
+        }
+    }
+    Ok(())
+}
+
+fn validate_screenshot_text_patches(
+    actions: &[ScreenshotAnnotation],
+    text_patches: Option<&[ScreenshotTextPatch]>,
+) -> Result<(), String> {
     let has_text = actions
         .iter()
         .any(|action| action.kind == "text" || action.text.is_some());
@@ -384,25 +476,7 @@ fn render_screenshot_annotations(
     if has_text && text_patches.is_empty() {
         return Err("Text annotations require text patches".into());
     }
-
-    let mut image = image::open(source_path)
-        .map_err(|e| format!("Failed to open screenshot: {}", e))?
-        .to_rgba8();
-    let width = image.width();
-    let height = image.height();
-
-    let mut text_patch_iter = text_patches.iter();
-    for action in actions {
-        if action.kind == "text" || action.text.is_some() {
-            if let Some(patch) = text_patch_iter.next() {
-                overlay_text_patch(&mut image, patch)?;
-            }
-        } else {
-            draw_screenshot_annotation(&mut image, action);
-        }
-    }
-
-    Ok((width as usize, height as usize, image.into_raw()))
+    Ok(())
 }
 
 fn overlay_text_patch(
@@ -856,7 +930,8 @@ mod tests {
     use super::{
         paste_delay_before_simulated_paste_ms, paste_focus_action_before_simulated_paste,
         paste_permission_error, prepare_text_history_entry, render_screenshot_annotations,
-        save_rgba_image, PasteFocusAction, ScreenshotAnnotation, ScreenshotTextPatch,
+        render_screenshot_selection_image, save_rgba_image, PasteFocusAction, ScreenshotAnnotation,
+        ScreenshotTextPatch,
     };
     use crate::commands::clipboard_db::ClipboardDb;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -868,6 +943,19 @@ mod tests {
         let saved = save_rgba_image(&dir, 2, 2, vec![255, 0, 0, 255]);
 
         assert!(saved.is_none());
+    }
+
+    #[test]
+    fn screenshot_selection_is_cropped_before_annotations_are_rendered() {
+        let source = image::RgbaImage::from_fn(4, 4, |x, y| {
+            image::Rgba([(x * 10) as u8, (y * 20) as u8, 0, 255])
+        });
+
+        let cropped = render_screenshot_selection_image(source, 1, 1, 2, 2, &[], None).unwrap();
+
+        assert_eq!((cropped.width(), cropped.height()), (2, 2));
+        assert_eq!(cropped.get_pixel(0, 0).0, [10, 20, 0, 255]);
+        assert_eq!(cropped.get_pixel(1, 1).0, [20, 40, 0, 255]);
     }
 
     #[test]

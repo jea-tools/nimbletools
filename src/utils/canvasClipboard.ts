@@ -41,6 +41,22 @@ export async function createCanvasSafeImageUrl(
   return createObjectUrl(await response.blob());
 }
 
+export async function runHiddenScreenshotExport<T>(
+  hideOverlay: () => Promise<void>,
+  exportScreenshot: () => Promise<T>,
+  restoreOverlay: () => Promise<void>,
+  settleOverlay: () => Promise<void> = () => new Promise((resolve) => setTimeout(resolve, 50)),
+): Promise<T> {
+  await hideOverlay();
+  try {
+    await settleOverlay();
+    return await exportScreenshot();
+  } catch (error) {
+    await restoreOverlay();
+    throw error;
+  }
+}
+
 export function getCanvasClipboardPayload(canvas: HTMLCanvasElement): CanvasClipboardPayload | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;

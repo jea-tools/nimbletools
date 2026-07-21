@@ -267,6 +267,35 @@ export function shouldConfirmSelectionOnDoubleClick(
   return phase === 'selected' && !!selection && isPointInSelection(selection, point);
 }
 
+export function shouldConfirmSelectionOnMouseDown(
+  clickCount: number,
+  phase: Phase,
+  selection: SelectionRect | null,
+  point: Point,
+): boolean {
+  return clickCount >= 2 && shouldConfirmSelectionOnDoubleClick(phase, selection, point);
+}
+
+export interface SelectionPress {
+  timestamp: number;
+  point: Point;
+}
+
+export function shouldConfirmSelectionOnRepeatedPress(
+  previousPress: SelectionPress | null,
+  timestamp: number,
+  phase: Phase,
+  selection: SelectionRect | null,
+  point: Point,
+  maxDelayMs = 400,
+  maxDistancePx = 6,
+): boolean {
+  if (!previousPress || !shouldConfirmSelectionOnDoubleClick(phase, selection, point)) return false;
+  const elapsed = timestamp - previousPress.timestamp;
+  if (elapsed < 0 || elapsed > maxDelayMs) return false;
+  return Math.hypot(point.x - previousPress.point.x, point.y - previousPress.point.y) <= maxDistancePx;
+}
+
 export function shouldStartNewSelectionOnMouseDown(
   phase: Phase,
   selection: SelectionRect | null,
